@@ -37,6 +37,12 @@ const swaggerDefinition = {
         scheme: 'bearer',
         bearerFormat: 'JWT',
         description: 'Enter your JWT authorization token (obtainable from /api/auth/login or /api/login)'
+      },
+      clientBearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Enter your Client Portal JWT authorization token (obtainable from /api/client-auth/login)'
       }
     },
     schemas: {
@@ -278,13 +284,51 @@ const swaggerDefinition = {
         type: 'object',
         properties: {
           _id: { type: 'string', example: '64bd9f0296e625a5857e4f10' },
+          name: { type: 'string', example: 'Patel Residence' },
+          companyName: { type: 'string', nullable: true, example: 'Patel Enterprises' },
+          phone: { type: 'string', example: '9876543210' },
+          email: { type: 'string', nullable: true, example: 'hirak@patel.com' },
+          billingAddress: { type: 'string', nullable: true, example: '101 Satellite Road, Ahmedabad' },
+          siteAddresses: {
+            type: 'array',
+            items: { type: 'string' },
+            example: ['Plot 45, SG Highway, Ahmedabad']
+          },
+          sourceLeadId: { type: 'string', nullable: true, example: '64bd9f0296e625a5857e4f20' },
+          isActive: { type: 'boolean', example: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' }
+        }
+      },
+      ClientContact: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string', example: '64bd9f0296e625a5857e4f50' },
+          clientId: { type: 'string', example: '64bd9f0296e625a5857e4f10' },
           name: { type: 'string', example: 'Hirak Patel' },
-          companyName: { type: 'string', example: 'Patel Enterprises' },
           email: { type: 'string', example: 'hirak@patel.com' },
           phone: { type: 'string', example: '9876543210' },
-          role: { type: 'string', example: '64bd9f0296e625a5857e4e01' },
-          user: { type: 'string', example: '64bd9f0296e625a5857e4e10' },
-          isActive: { type: 'boolean', example: true }
+          permissionLevel: { type: 'string', enum: ['OWNER', 'MEMBER', 'VIEW_ONLY'], example: 'OWNER' },
+          isPrimaryContact: { type: 'boolean', example: true },
+          mustChangePassword: { type: 'boolean', example: true },
+          isActive: { type: 'boolean', example: true },
+          createdBy: { type: 'string', example: '64bd9f0296e625a5857e4e10' },
+          createdByModel: { type: 'string', enum: ['User', 'ClientContact'], example: 'User' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' }
+        }
+      },
+      ClientContactActionLog: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string', example: '64bd9f0296e625a5857e4f60' },
+          clientId: { type: 'string', example: '64bd9f0296e625a5857e4f10' },
+          contactId: { type: 'string', example: '64bd9f0296e625a5857e4f50' },
+          action: { type: 'string', example: 'CONTACT_ADDED' },
+          targetContactId: { type: 'string', nullable: true, example: '64bd9f0296e625a5857e4f51' },
+          performedAt: { type: 'string', format: 'date-time' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' }
         }
       },
       Lead: {
@@ -2158,15 +2202,388 @@ const swaggerDefinition = {
     },
     '/leads/{id}/convert-to-client': {
       post: {
-        tags: ['CRM Module 1 - Lead Management'],
-        summary: 'Trigger client conversion stub for lead',
-        description: 'Validates lead, sets status=WON, writes status audit log, and prepares lead for Module 2 Client creation.',
+        tags: ['CRM Module 1 - Lead Management', 'CRM Module 2 - Client Master'],
+        summary: 'Convert WON Lead to Client account & Primary OWNER ClientContact',
+        description: 'Converts Lead to WON status, creates Client entity and primary ClientContact with OWNER permission level, issues temporary password, and links convertedToClientId.',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Target Lead MongoDB _id' }
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  primaryContactEmail: { type: 'string', example: 'hirak.contact@patel.com', description: 'Mandatory if Lead has no email captured' },
+                  companyName: { type: 'string', example: 'Patel Group' },
+                  billingAddress: { type: 'string', example: '101 Satellite Road, Ahmedabad' },
+                  siteAddresses: { type: 'array', items: { type: 'string' }, example: ['Plot 45, SG Highway'] }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Lead converted successfully; Client + Primary OWNER Contact created with temp password' },
+          400: { description: 'Lead already converted, status is LOST, or lead email is missing without primaryContactEmail' },
+          403: { description: 'Access denied' },
+          404: { description: 'Lead not found' }
+        }
+      }
+    },
+    '/clients/create': {
+      post: {
+        tags: ['CRM Module 2 - Client Master'],
+        summary: 'Directly create Client account & Primary OWNER Contact (no prior lead)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name', 'phone', 'primaryContactName', 'primaryContactEmail'],
+                properties: {
+                  name: { type: 'string', example: 'Shah Enterprises' },
+                  companyName: { type: 'string', example: 'Shah Group' },
+                  phone: { type: 'string', example: '9876543210' },
+                  email: { type: 'string', example: 'info@shah.com' },
+                  billingAddress: { type: 'string', example: '202 Corporate Park, SG Highway' },
+                  siteAddresses: { type: 'array', items: { type: 'string' }, example: ['Site A, Bopal', 'Site B, Satellite'] },
+                  primaryContactName: { type: 'string', example: 'Anand Shah' },
+                  primaryContactEmail: { type: 'string', example: 'anand@shah.com' },
+                  primaryContactPhone: { type: 'string', example: '9876543210' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Client & Primary OWNER Contact created successfully' },
+          400: { description: 'Validation error or duplicate contact email' }
+        }
+      }
+    },
+    '/clients': {
+      get: {
+        tags: ['CRM Module 2 - Client Master'],
+        summary: 'Get paginated and searchable list of Client accounts (Internal Team)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search term for name, company, phone, or email' },
+          { name: 'isActive', in: 'query', schema: { type: 'boolean', default: true } },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } }
+        ],
+        responses: {
+          200: { description: 'Paginated list of clients with primary contact & active project count' }
+        }
+      },
+      post: {
+        tags: ['CRM Module 2 - Client Master'],
+        summary: 'Directly create Client account alias for /clients/create',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name', 'phone', 'primaryContactName', 'primaryContactEmail'],
+                properties: {
+                  name: { type: 'string', example: 'Shah Enterprises' },
+                  phone: { type: 'string', example: '9876543210' },
+                  primaryContactName: { type: 'string', example: 'Anand Shah' },
+                  primaryContactEmail: { type: 'string', example: 'anand@shah.com' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Client created successfully' }
+        }
+      }
+    },
+    '/clients/{id}': {
+      get: {
+        tags: ['CRM Module 2 - Client Master'],
+        summary: 'Get Client details by ID with associated ClientContacts',
+        security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
         ],
         responses: {
-          200: { description: 'Lead status set to WON and queued for Module 2 Client creation' },
-          400: { description: 'Lead is already WON or LOST' }
+          200: { description: 'Client account details retrieved with contacts list' },
+          404: { description: 'Client not found' }
+        }
+      },
+      put: {
+        tags: ['CRM Module 2 - Client Master'],
+        summary: 'Update Client account-level fields',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  companyName: { type: 'string' },
+                  phone: { type: 'string' },
+                  email: { type: 'string' },
+                  billingAddress: { type: 'string' },
+                  siteAddresses: { type: 'array', items: { type: 'string' } }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Client account updated successfully' },
+          404: { description: 'Client not found' }
+        }
+      }
+    },
+    '/clients/{id}/deactivate': {
+      put: {
+        tags: ['CRM Module 2 - Client Master'],
+        summary: 'Soft-deactivate Client account (Active project safeguard)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'force', in: 'query', schema: { type: 'boolean' }, description: 'Bypass active project block' }
+        ],
+        responses: {
+          200: { description: 'Client account deactivated successfully' },
+          400: { description: 'Active projects exist on account' }
+        }
+      }
+    },
+    '/clients/{clientId}/contacts/add': {
+      post: {
+        tags: ['CRM Module 2 - Client Contacts'],
+        summary: 'Add additional ClientContact to a Client account',
+        description: 'Callable by Internal PM/Admin OR Client Contact with OWNER permission level.',
+        security: [{ bearerAuth: [] }, { clientBearerAuth: [] }],
+        parameters: [
+          { name: 'clientId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name', 'email'],
+                properties: {
+                  name: { type: 'string', example: 'Vikram Site Engineer' },
+                  email: { type: 'string', example: 'vikram.site@enterprises.com' },
+                  phone: { type: 'string', example: '9876500001' },
+                  permissionLevel: { type: 'string', enum: ['OWNER', 'MEMBER', 'VIEW_ONLY'], default: 'MEMBER' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Additional ClientContact added with temporary password' },
+          400: { description: 'Duplicate email or validation error' },
+          403: { description: 'Access denied (Requires Admin or OWNER contact level)' }
+        }
+      }
+    },
+    '/clients/{clientId}/contacts': {
+      get: {
+        tags: ['CRM Module 2 - Client Contacts'],
+        summary: 'List all ClientContacts for a Client account',
+        security: [{ bearerAuth: [] }, { clientBearerAuth: [] }],
+        parameters: [
+          { name: 'clientId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'List of client contacts' },
+          403: { description: 'Access denied (Can only view contacts for own client account)' }
+        }
+      }
+    },
+    '/clients/{clientId}/contacts/{contactId}/permission': {
+      put: {
+        tags: ['CRM Module 2 - Client Contacts'],
+        summary: 'Update permission level of a ClientContact',
+        description: 'Callable by Internal PM/Admin OR Client Contact with OWNER permission. Enforces minimum 1 active OWNER constraint.',
+        security: [{ bearerAuth: [] }, { clientBearerAuth: [] }],
+        parameters: [
+          { name: 'clientId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'contactId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['newPermissionLevel'],
+                properties: {
+                  newPermissionLevel: { type: 'string', enum: ['OWNER', 'MEMBER', 'VIEW_ONLY'], example: 'MEMBER' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Permission level updated' },
+          400: { description: 'Cannot demote the last remaining active OWNER' }
+        }
+      }
+    },
+    '/clients/{clientId}/contacts/{contactId}/deactivate': {
+      put: {
+        tags: ['CRM Module 2 - Client Contacts'],
+        summary: 'Soft-deactivate a ClientContact account',
+        description: 'Callable by Internal PM/Admin OR Client Contact with OWNER permission. Safeguard blocks deactivating the last active OWNER.',
+        security: [{ bearerAuth: [] }, { clientBearerAuth: [] }],
+        parameters: [
+          { name: 'clientId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'contactId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Contact deactivated successfully' },
+          400: { description: 'Cannot deactivate the last active OWNER contact' }
+        }
+      }
+    },
+    '/clients/{clientId}/contacts/{contactId}/reset-temp-password': {
+      post: {
+        tags: ['CRM Module 2 - Client Contacts'],
+        summary: 'Regenerate temporary password for ClientContact (Admin Helper)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'clientId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'contactId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Temporary password regenerated and mustChangePassword set to true' }
+        }
+      }
+    },
+    '/client-auth/login': {
+      post: {
+        tags: ['CRM Module 2 - Client Portal Auth'],
+        summary: 'Client Portal Login',
+        description: 'Authenticates ClientContact credentials and returns a Client-scoped JWT token payload.',
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['email', 'password'],
+                properties: {
+                  email: { type: 'string', example: 'shah.owner@enterprises.com' },
+                  password: { type: 'string', example: 'TempPass@123' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Login successful, returns Client Portal JWT and mustChangePassword flag' },
+          401: { description: 'Invalid email or password' },
+          403: { description: 'Account or parent Client is deactivated' }
+        }
+      }
+    },
+    '/client-auth/change-password': {
+      post: {
+        tags: ['CRM Module 2 - Client Portal Auth'],
+        summary: 'Change password for logged-in ClientContact',
+        description: 'Validates current password and updates password, flipping mustChangePassword to false.',
+        security: [{ clientBearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['currentPassword', 'newPassword'],
+                properties: {
+                  currentPassword: { type: 'string', example: 'TempPass@123' },
+                  newPassword: { type: 'string', example: 'NewPass@1234' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Password updated successfully and mustChangePassword set to false' },
+          400: { description: 'Incorrect current password or complexity failure' }
+        }
+      }
+    },
+    '/client-auth/forgot-password': {
+      post: {
+        tags: ['CRM Module 2 - Client Portal Auth'],
+        summary: 'Request password reset token for ClientContact',
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                  email: { type: 'string', example: 'shah.owner@enterprises.com' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Password reset token generated' }
+        }
+      }
+    },
+    '/client-auth/reset-password': {
+      post: {
+        tags: ['CRM Module 2 - Client Portal Auth'],
+        summary: 'Reset password using reset token',
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['resetToken', 'newPassword'],
+                properties: {
+                  resetToken: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsIn...' },
+                  newPassword: { type: 'string', example: 'ResetPass@999' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Password reset completed successfully' },
+          400: { description: 'Invalid or expired token or complexity failure' }
+        }
+      }
+    },
+    '/client-auth/me': {
+      get: {
+        tags: ['CRM Module 2 - Client Portal Auth'],
+        summary: 'Get current logged-in ClientContact profile & parent Client details',
+        security: [{ clientBearerAuth: [] }],
+        responses: {
+          200: { description: 'Client contact profile and parent account info' },
+          401: { description: 'Unauthorized' }
         }
       }
     }
