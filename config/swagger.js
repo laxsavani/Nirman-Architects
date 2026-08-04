@@ -331,6 +331,36 @@ const swaggerDefinition = {
           updatedAt: { type: 'string', format: 'date-time' }
         }
       },
+      ClientProjectLink: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string', example: '64bd9f0296e625a5857e4f70' },
+          clientId: { type: 'string', example: '64bd9f0296e625a5857e4f10' },
+          projectId: { type: 'string', example: '64bd9f0296e625a5857e4f80' },
+          visibleToClient: { type: 'boolean', example: true },
+          linkedBy: { type: 'string', example: '64bd9f0296e625a5857e4e10' },
+          linkedAt: { type: 'string', format: 'date-time' },
+          unlinkedBy: { type: 'string', nullable: true },
+          unlinkedAt: { type: 'string', format: 'date-time', nullable: true },
+          isActive: { type: 'boolean', example: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' }
+        }
+      },
+      ClientProjectLinkHistory: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string', example: '64bd9f0296e625a5857e4f75' },
+          clientId: { type: 'string', example: '64bd9f0296e625a5857e4f10' },
+          projectId: { type: 'string', example: '64bd9f0296e625a5857e4f80' },
+          action: { type: 'string', enum: ['LINKED', 'UNLINKED', 'VISIBILITY_CHANGED'], example: 'LINKED' },
+          performedBy: { type: 'string', example: '64bd9f0296e625a5857e4e10' },
+          notes: { type: 'string', nullable: true, example: 'Project linked after contract signing' },
+          performedAt: { type: 'string', format: 'date-time' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' }
+        }
+      },
       Lead: {
         type: 'object',
         properties: {
@@ -2584,6 +2614,131 @@ const swaggerDefinition = {
         responses: {
           200: { description: 'Client contact profile and parent account info' },
           401: { description: 'Unauthorized' }
+        }
+      }
+    },
+    '/client-project-links/create': {
+      post: {
+        tags: ['CRM Module 3 - Client-Project Linkage'],
+        summary: 'Link a Project to a Client account (Internal PM / Admin)',
+        description: 'Creates an active link between a Client and Project. Validates active status of Client and prevents duplicate active links.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['clientId', 'projectId'],
+                properties: {
+                  clientId: { type: 'string', example: '64bd9f0296e625a5857e4f10' },
+                  projectId: { type: 'string', example: '64bd9f0296e625a5857e4f80' },
+                  visibleToClient: { type: 'boolean', default: true }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Project successfully linked to Client account' },
+          400: { description: 'Active link already exists or target Client is deactivated' },
+          404: { description: 'Client or Project not found' }
+        }
+      }
+    },
+    '/client-project-links/by-client/{clientId}': {
+      get: {
+        tags: ['CRM Module 3 - Client-Project Linkage'],
+        summary: 'Get active project links for a specific Client account',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'clientId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'List of active project links for the specified client' }
+        }
+      }
+    },
+    '/client-project-links/by-project/{projectId}': {
+      get: {
+        tags: ['CRM Module 3 - Client-Project Linkage'],
+        summary: 'Get active client links for a specific Project',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'List of active client links for the specified project' }
+        }
+      }
+    },
+    '/client-project-links/{id}/visibility': {
+      put: {
+        tags: ['CRM Module 3 - Client-Project Linkage'],
+        summary: 'Toggle project visibility to client portal',
+        description: 'Toggles visibleToClient boolean without unlinking the project.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'ClientProjectLink MongoDB _id' }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['visibleToClient'],
+                properties: {
+                  visibleToClient: { type: 'boolean', example: false }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Visibility updated successfully' },
+          404: { description: 'Active link not found' }
+        }
+      }
+    },
+    '/client-project-links/{id}': {
+      delete: {
+        tags: ['CRM Module 3 - Client-Project Linkage'],
+        summary: 'Soft-delete (unlink) a project from a client (Admin / Super Admin ONLY)',
+        description: 'Soft-deletes the link (isActive: false, unlinkedBy, unlinkedAt set). Restricted to Admin and Super Admin roles.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'ClientProjectLink MongoDB _id' }
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  notes: { type: 'string', example: 'Ownership transferred to another party' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Project unlinked from Client account successfully' },
+          403: { description: 'Access denied (Admin / Super Admin role required)' },
+          404: { description: 'Active link not found' }
+        }
+      }
+    },
+    '/client/projects/my': {
+      get: {
+        tags: ['CRM Module 3 - Client-Project Linkage'],
+        summary: 'Get visible linked projects for authenticated ClientContact',
+        description: 'Returns all active linked projects where visibleToClient === true for the calling ClientContact\'s own clientId.',
+        security: [{ clientBearerAuth: [] }],
+        responses: {
+          200: { description: 'List of visible linked projects for the calling client account' },
+          401: { description: 'Unauthorized Client Portal token' }
         }
       }
     }
