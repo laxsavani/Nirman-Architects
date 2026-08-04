@@ -361,6 +361,18 @@ const swaggerDefinition = {
           updatedAt: { type: 'string', format: 'date-time' }
         }
       },
+      ClientPortalSession: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string', example: '64bd9f0296e625a5857e4f90' },
+          contactId: { type: 'string', example: '64bd9f0296e625a5857e4f50' },
+          platform: { type: 'string', enum: ['WEB', 'ANDROID', 'IOS'], example: 'WEB' },
+          loginAt: { type: 'string', format: 'date-time' },
+          lastActiveAt: { type: 'string', format: 'date-time' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' }
+        }
+      },
       Lead: {
         type: 'object',
         properties: {
@@ -2739,6 +2751,133 @@ const swaggerDefinition = {
         responses: {
           200: { description: 'List of visible linked projects for the calling client account' },
           401: { description: 'Unauthorized Client Portal token' }
+        }
+      }
+    },
+    '/client/dashboard': {
+      get: {
+        tags: ['CRM Module 4 - Client Portal Core'],
+        summary: 'Aggregated Dashboard View for Client Portal (Web & Mobile)',
+        description: 'Returns active and past/completed visible linked projects in a single optimized payload for landing screen cards.',
+        security: [{ clientBearerAuth: [] }],
+        responses: {
+          200: { description: 'Dashboard aggregated view retrieved successfully' },
+          401: { description: 'Unauthorized Client Portal token' }
+        }
+      }
+    },
+    '/client/projects/{projectId}': {
+      get: {
+        tags: ['CRM Module 4 - Client Portal Core'],
+        summary: 'Get full project detail for client (verifies linkage security)',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Project details retrieved successfully' },
+          403: { description: 'Access denied (project is not linked or visible to your Client account)' },
+          404: { description: 'Project not found' }
+        }
+      }
+    },
+    '/client/projects/{projectId}/milestones': {
+      get: {
+        tags: ['CRM Module 4 - Client Portal Core'],
+        summary: 'Get project milestones for client',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Milestones list retrieved successfully' },
+          403: { description: 'Access denied' }
+        }
+      }
+    },
+    '/client/projects/{projectId}/timeline': {
+      get: {
+        tags: ['CRM Module 4 - Client Portal Core'],
+        summary: 'Get formatted project timeline events for client',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Formatted timeline retrieved successfully' },
+          403: { description: 'Access denied' }
+        }
+      }
+    },
+    '/client-auth/profile': {
+      put: {
+        tags: ['CRM Module 4 - Client Portal Core'],
+        summary: 'Update logged-in ClientContact profile (name & phone only)',
+        security: [{ clientBearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', example: 'Anand Shah Updated' },
+                  phone: { type: 'string', example: '9876543211' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Profile updated successfully' },
+          400: { description: 'No editable fields supplied' }
+        }
+      }
+    },
+    '/client/session/log-login': {
+      post: {
+        tags: ['CRM Module 4 - Client Portal Core'],
+        summary: 'Log Client Portal session login (WEB, ANDROID, IOS)',
+        security: [{ clientBearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['platform'],
+                properties: {
+                  platform: { type: 'string', enum: ['WEB', 'ANDROID', 'IOS'], example: 'WEB' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Session logged successfully' }
+        }
+      }
+    },
+    '/client/session/heartbeat': {
+      post: {
+        tags: ['CRM Module 4 - Client Portal Core'],
+        summary: 'Update Client Portal session active timestamp (Heartbeat)',
+        security: [{ clientBearerAuth: [] }],
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  sessionId: { type: 'string', example: '64bd9f0296e625a5857e4f90' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Heartbeat timestamp updated successfully' }
         }
       }
     }

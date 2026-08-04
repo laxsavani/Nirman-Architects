@@ -15,5 +15,6 @@ router.post('/reset-password', clientAuthController.resetPassword);
 // Client-Authenticated Endpoints
 router.post('/change-password', clientAuthMiddleware, clientAuthController.changePassword);
 router.get('/me', clientAuthMiddleware, clientAuthController.getMe);
+router.put('/profile', clientAuthMiddleware, require('../controllers/clientPortal.controller').updateProfile);
 
 module.exports = router;

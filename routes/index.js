@@ -18,6 +18,7 @@ const leadRoutes = require('./lead.routes');
 const clientRoutes = require('./client.routes');
 const clientAuthRoutes = require('./clientAuth.routes');
 const clientProjectLinkRoutes = require('./clientProjectLink.routes');
+const clientPortalRoutes = require('./clientPortal.routes');
 
 // Health Check Endpoint
 router.get('/health', (req, res) => {
@@ -61,7 +62,9 @@ router.use('/client-auth', clientAuthRoutes);
 
 // CRM Module 3 - Client-Project Linkage Routes
 router.use('/client-project-links', clientProjectLinkRoutes);
-router.use('/client/projects', clientProjectLinkRoutes);
+
+// CRM Module 4 - Client Portal Core Routes
+router.use('/client', clientPortalRoutes);
 
 // Notification & User Routes
 router.use('/notifications', notificationRoutes);

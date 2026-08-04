@@ -1,886 +1,777 @@
-================================================================================
- NIRMAN ARCHITECTS - HRM MODULE
- MASTER CONSOLIDATED DOCUMENTATION (ALL-IN-ONE)
- For: Antigravity Implementation Reference
- Client: Hirak bhai | Delivered by: Nexalliance - Your Trusted IT Partner
- Stack: Node.js + Express + MongoDB (Mongoose)
-================================================================================
-
---------------------------------------------------------------------------------
- MASTER TABLE OF CONTENTS
---------------------------------------------------------------------------------
-PART 1  — Product Context, Scope & Standards
-PART 2  — Identity Layer (RoleMaster + User + Role Profiles)
-PART 3  — Attendance Module (Auto Clock-in/out)
-PART 4  — Leave Management Module (Dynamic Leave Master + Deduction)
-PART 5  — Payroll Module (Auto Calculation + PDF)
-PART 6  — Offer Letter + Structured Storage Add-on
-PART 7  — Full Mongoose Schemas (ALL models, consolidated)
-PART 8  — Full API Contract (ALL endpoints, consolidated)
-PART 9  — Node.js Folder Structure (final, consolidated)
-PART 10 — Master Step-by-Step Implementation Plan (build order)
-PART 11 — Formulas & Worked Examples
-PART 12 — Edge Cases & Guidance (all modules)
-PART 13 — Security, Audit & Data-Integrity Rules
-PART 14 — Product-Level Standards (Testing, Deployment, Backup, Handoff)
-PART 15 — Definition of Done / Sign-off Criteria
-
-================================================================================
-PART 1 — PRODUCT CONTEXT, SCOPE & STANDARDS
-================================================================================
-
-1.1 Product Identity
-  - Product: Nirman Architects HRM Module
-  - Modules: Identity/Roles | Attendance | Leave Management | Payroll |
-    Offer Letter Generation
-  - This is a CLIENT-FACING PRODUCT running real payroll/attendance —
-    treat with production-grade rigor (correctness + auditability over
-    speed).
-
-1.2 In Scope
-  - RoleMaster + User + role-specific profile collections (SuperAdmin,
-    HR, ProjectManager, Architect, SiteEngineer, Employee)
-  - Attendance: auto clock-in/out (PC on/off), heartbeat safety net,
-    offline sync, device binding, manual correction workflow
-  - Leave Management: dynamic Leave Master, per-employee balances,
-    apply/approve workflow, formula-driven salary deduction
-  - Payroll: auto monthly calculation, PDF payslip generation, admin
-    bulk download, employee self-download
-  - Offer Letter: auto-generated PDF on employee registration, stored
-    in a structured file system alongside salary slips
-
-1.3 Out of Scope (requires separate Change Request)
-  - Customer Portal, Project/Task/Drawing Management
-  - Productivity monitoring/screenshots/PC activity tracking
-  - AI/BI/future-enhancement items from the original master PRD
-  - Super Admin full system settings UI beyond what's specified here
-
-1.4 Non-Functional Requirements
-  - Reliability: no silent data loss across online/offline/cron paths
-  - Performance: attendance events <500ms; bulk payroll for 200
-    employees completes in minutes via background job; all list APIs
-    paginated
-  - Availability: target 99.5% uptime during business hours; cron
-    jobs monitored (Part 14)
-  - Auditability: every state-changing action traceable to WHO + WHEN
-
-1.5 Engineering Standards
-  - Node.js LTS + Express + MongoDB/Mongoose
-  - Folder structure per Part 9 — no deviation without discussion
-  - All secrets/config via .env, never hardcoded, never committed
-  - Consistent error shape: { success: false, message, code }
-  - Input validation on every endpoint (joi/express-validator)
-  - Mandatory comments on safety-critical logic (server-time authority,
-    salary formula, heartbeat cron, dynamic leave propagation)
-  - Git feature-branch workflow + PR review + ESLint/Prettier enforced
-
-================================================================================
-PART 2 — IDENTITY LAYER (ROLEMASTER + USER + ROLE PROFILES)
-================================================================================
-
-2.1 Core Strategy
-  - ONE "RoleMaster" collection = dynamic, admin-managed role list
-    (not hardcoded enum). Admin can add new roles later without code
-    deployment.
-  - ONE "User" collection = every person, all roles, COMMON fields only:
-    name, email, passwordHash, phone, roleId (FK), department,
-    designation, joiningDate, baseSalary, deviceId, deviceStatus, isActive.
-  - Role-SPECIFIC extra data lives in SEPARATE collections (SuperAdmin,
-    HR, ProjectManager, Architect, SiteEngineer, Employee), each with a
-    `userId` FK back to User.
-
-2.2 Why This Structure
-  - Keeps User lean/fast for auth, payroll, attendance, leave — the 4
-    things every role needs — without dozens of nullable role-specific
-    columns.
-  - Each role profile evolves independently without touching others.
-  - On user creation: system reads roleId -> resolves role code via
-    RoleMaster -> auto-creates the matching profile document, keeping
-    both always in sync.
-
-2.3 Seed Data (RoleMaster)
-  SUPER_ADMIN, HR, PROJECT_MANAGER, ARCHITECT, SITE_ENGINEER, EMPLOYEE,
-  CUSTOMER (flagged inactive-for-HRM, out of scope for this module)
-
-================================================================================
-PART 3 — ATTENDANCE MODULE (AUTO CLOCK-IN/OUT)
-================================================================================
-
-3.1 Trigger Behavior
-  - Laptop ON + OS login -> Desktop Agent auto-fires CLOCK-IN
-  - Laptop OFF/shutdown -> Desktop Agent auto-fires CLOCK-OUT
-  - No manual punch button for office staff
-
-3.2 Single Database, Single JSON Rule (explicit client requirement)
-  - SERVER: exactly ONE collection "Attendance" stores every clock-in/
-    out/heartbeat event, live or offline-synced — no second table.
-  - CLIENT (employee's own PC only): exactly ONE local JSON file
-    (`offline_queue.json`) buffers events when there's no internet.
-    NOT a database — flushed into the SAME Attendance collection once
-    online, flagged `isOfflineEntry: true`.
-
-3.3 Server-Time Authority
-  - `clockInTime`/`clockOutTime` ALWAYS set from server's `Date.now()`
-    at request-processing time — never from client-submitted time
-    (stored separately as reference only, for tamper-detection).
-
-3.4 Heartbeat Safety Net
-  - Agent pings every 2 minutes while active.
-  - `node-cron` runs every 1 minute: any Attendance doc with
-    `clockOutTime: null` and `lastHeartbeat` older than 5 minutes gets
-    auto-closed (`clockOutTime = lastHeartbeat`, `autoClosed: true`).
-    Covers crashes, force shutdown, power cuts.
-
-3.5 Device Binding
-  - `User.deviceId` = Machine GUID captured on first agent run.
-  - Every event validated against it; mismatches rejected + logged to
-    UnauthorizedAttempt.
-  - Device changes go through DeviceChangeRequest (PENDING until HR/
-    Super Admin approves; old device stays active meanwhile).
-
-3.6 Manual Corrections
-  - AttendanceCorrectionRequest lets an employee flag a wrong record;
-    HR/Super Admin reviews and approves/rejects.
-
-3.7 Config
-  - AttendanceConfig stores heartbeat interval, timeout threshold,
-    shift times — editable by Super Admin, no code change needed.
-
-================================================================================
-PART 4 — LEAVE MANAGEMENT MODULE (DYNAMIC MASTER + DEDUCTION)
-================================================================================
-
-4.1 Dynamic Leave Master (core client requirement)
-  - "LeaveType" collection is fully admin-managed data, NEVER a
-    hardcoded list in code.
-  - Example: system starts with Casual Leave + Sick Leave (2 types).
-    Super Admin adds "Test Leave" -> system now shows 3 types
-    EVERYWHERE (apply dropdown, approval screen, payroll engine)
-    immediately, with zero code change or deployment.
-
-4.2 Leave Balance
-  - One row per (user, leaveType, year): allocatedDays, usedDays,
-    remainingDays (computed = allocated - used, never stored directly).
-  - CRITICAL: when a NEW LeaveType is added mid-year, the system must
-    auto-generate a LeaveBalance row for EVERY active employee for that
-    new type IMMEDIATELY (synchronous step at creation time) — this is
-    the core of the "dynamic" behavior the client explicitly tested for.
-
-4.3 Leave Request & Approval Flow
-  - Any role applies -> selects leaveTypeId (dynamic dropdown) + dates
-    + reason -> status = PENDING.
-  - Goes to SUPER ADMIN's approval queue (final approval authority per
-    client requirement — not HR).
-  - Nothing deducted from balance/salary until APPROVED.
-  - On approval: snapshot `isPaidSnapshot = leaveType.isPaid` onto the
-    LeaveRequest (protects historical accuracy if the LeaveType's
-    isPaid flag changes later).
-
-4.4 Salary Deduction Formula (EXACT client specification)
-  If leave is unpaid (isPaid=false or exceeds paid quota):
-      daysInMonth      = calendar days in that payroll month
-      perDaySalary     = baseSalary / daysInMonth
-      deductionAmount  = perDaySalary * numberOfUnpaidLeaveDays
-
-  Client's exact worked example:
-      baseSalary = 20000, daysInMonth = 30
-      perDaySalary = 20000 / 30 = 666.666... -> rounded 666.67
-      1 unpaid day -> deduction = 666.67 -> netSalary = 19,333.33
-
-  If leave is paid (within quota): NO deduction; day counted "On
-  Leave" in attendance, full salary applies.
-
-4.5 Manual Balance Adjustments
-  - LeaveBalanceAdjustment logs every manual edit: old value, new
-    value, reason, adjustedBy, adjustedAt — full audit trail.
-
-================================================================================
-PART 5 — PAYROLL MODULE (AUTO CALCULATION + PDF)
-================================================================================
-
-5.1 Monthly Auto-Calculation (per User, per month/year)
-  1. baseSalary = User.baseSalary
-  2. daysInMonth = actual calendar days (28/29/30/31)
-  3. presentDays = count from Attendance for that month
-  4. paidLeaveDays / unpaidLeaveDays = split from APPROVED
-     LeaveRequests that month, by isPaidSnapshot
-  5. absentDays = daysInMonth - presentDays - paidLeaveDays -
-     unpaidLeaveDays (floor at 0)
-  6. perDaySalary = round2(baseSalary / daysInMonth)
-  7. totalDeduction = round2(perDaySalary * (unpaidLeaveDays + absentDays))
-  8. netSalary = round2(baseSalary - totalDeduction)
-  9. Upsert ONE Payroll doc per (userId, month, year) with all numbers
-     stored for payslip transparency
-
-5.2 Automation
-  - `node-cron` auto-runs on the 1st of each month for the PREVIOUS
-    month, for ALL active users.
-  - Admin can manually trigger/regenerate for any month/user (e.g.,
-    after a late attendance correction is approved).
-
-5.3 PDF Payslips
-  - Admin: bulk-download ALL employees' payslips for a month (zipped),
-    or download one specific employee's.
-  - Employee: self-download ONLY their own payslip (userId enforced
-    from JWT, never a client-supplied param).
-  - PDF content: name, month/year, baseSalary, daysInMonth,
-    presentDays, paidLeaveDays, unpaidLeaveDays, absentDays,
-    perDaySalary, totalDeduction, netSalary.
-
-================================================================================
-PART 6 — OFFER LETTER + STRUCTURED STORAGE ADD-ON
-================================================================================
-
-6.1 Requirement
-  - Whenever a new user is REGISTERED (POST /api/users/create), the
-    system must AUTOMATICALLY generate an Offer Letter PDF.
-  - Offer Letter PDFs saved under: /storage/offer_letters/
-  - Salary slip PDFs (from Payroll module) reorganized under:
-    /storage/salary/
-  - Both live under one common /storage root.
-
-6.2 Storage Folder Structure
-  /storage
-    /offer_letters
-      /<userId>
-        offer_letter_<userId>_<timestamp>.pdf
-    /salary
-      /<userId>
-        /<year>
-          payslip_<userId>_<month>_<year>.pdf
-
-  Rationale: single root simplifies backups; per-user subfolders keep
-  documents isolated/auditable; per-year subfolder under salary
-  prevents flat-folder overload as the company operates across years;
-  self-descriptive filenames survive being moved.
-
-6.3 Offer Letter Generation Flow
-  Admin/HR registers employee
-    -> User + role-profile created (Part 2)
-    -> Offer Letter auto-generation triggered SAME request (synchronous)
-    -> PDF rendered via offerLetterPdfGenerator.js
-    -> Saved to /storage/offer_letters/<userId>/...
-    -> OfferLetter document created in MongoDB (filePath, snapshots,
-       generatedBy, status)
-    -> Notification sent to new employee
-    -> Response includes downloadable reference
-
-6.4 Offer Letter Content (minimum)
-  Company letterhead, date of issue, employee name/email, position/
-  designation, department, date of joining, compensation (base
-  salary), employment terms (client-approved boilerplate — Nexalliance
-  does NOT invent legal clauses independently), signature block,
-  footer contact info.
-
-6.5 Snapshot Rule (critical)
-  - OfferLetter stores SNAPSHOT values (designation, department,
-    baseSalary, joiningDate) at generation time. If User's salary/role
-    changes later, the ORIGINAL offer letter must NOT silently change
-    — it's a historical/legal document. Corrections go through a
-    `/regenerate` endpoint creating a NEW record; old one stays intact.
-
-6.6 Salary Slip Path Update
-  - Payroll module's existing PDF generator updated to save to the new
-    structured path: /storage/salary/<userId>/<year>/payslip_....pdf
-  - Payroll.pdfPath field updated to store this new path — no change
-    to calculation logic, purely a storage-location update.
-
-================================================================================
-PART 7 — FULL MONGOOSE SCHEMAS (ALL MODELS, CONSOLIDATED)
-================================================================================
-
-// ============================================================
-// models/RoleMaster.js
-// ============================================================
-const mongoose = require('mongoose');
-
-const roleMasterSchema = new mongoose.Schema({
-  roleName:    { type: String, required: true, unique: true },
-  roleCode:    { type: String, required: true, unique: true },
-  description: { type: String },
-  isActive:    { type: Boolean, default: true }
-}, { timestamps: true });
-
-module.exports = mongoose.model('RoleMaster', roleMasterSchema);
-
-
-// ============================================================
-// models/User.js
-// ============================================================
-const userSchema = new mongoose.Schema({
-  name:         { type: String, required: true },
-  email:        { type: String, required: true, unique: true },
-  password:     { type: String, required: true },
-  phone:        { type: String },
-  roleId:       { type: mongoose.Schema.Types.ObjectId, ref: 'RoleMaster', required: true },
-  department:   { type: String },
-  designation:  { type: String },
-  joiningDate:  { type: Date },
-  baseSalary:   { type: Number, required: true, default: 0 },
-  deviceId:     { type: String, default: null },
-  deviceStatus: { type: String, enum: ['APPROVED','PENDING','BLOCKED'], default: 'PENDING' },
-  isActive:     { type: Boolean, default: true }
-}, { timestamps: true });
-
-module.exports = mongoose.model('User', userSchema);
-
-
-// ============================================================
-// models/SuperAdmin.js | HR.js | ProjectManager.js | Architect.js |
-// models/SiteEngineer.js | Employee.js   (role profile pattern)
-// ============================================================
-// SuperAdmin.js
-const superAdminSchema = new mongoose.Schema({
-  userId:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
-  permissions: [{ type: String }]
-}, { timestamps: true });
-module.exports = mongoose.model('SuperAdmin', superAdminSchema);
-
-// HR.js
-const hrSchema = new mongoose.Schema({
-  userId:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
-  hrPermissions: [{ type: String }]
-}, { timestamps: true });
-module.exports = mongoose.model('HR', hrSchema);
-
-// ProjectManager.js
-const projectManagerSchema = new mongoose.Schema({
-  userId:           { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
-  assignedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }]
-}, { timestamps: true });
-module.exports = mongoose.model('ProjectManager', projectManagerSchema);
-
-// Architect.js
-const architectSchema = new mongoose.Schema({
-  userId:         { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
-  specialization: { type: String },
-  portfolioLinks: [{ type: String }]
-}, { timestamps: true });
-module.exports = mongoose.model('Architect', architectSchema);
-
-// SiteEngineer.js
-const siteEngineerSchema = new mongoose.Schema({
-  userId:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
-  assignedSites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }]
-}, { timestamps: true });
-module.exports = mongoose.model('SiteEngineer', siteEngineerSchema);
-
-// Employee.js
-const employeeSchema = new mongoose.Schema({
-  userId:           { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
-  teamId:           { type: String },
-  reportingManager: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-}, { timestamps: true });
-module.exports = mongoose.model('Employee', employeeSchema);
-
-
-// ============================================================
-// models/Attendance.js
-// ============================================================
-const attendanceSchema = new mongoose.Schema({
-  userId:         { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  clockInTime:    { type: Date, required: true },     // server time, authoritative
-  clockOutTime:   { type: Date, default: null },       // server time, authoritative
-  clientClockIn:  { type: Date, default: null },       // reference only
-  clientClockOut: { type: Date, default: null },       // reference only
-  deviceId:       { type: String },
-  isOfflineEntry: { type: Boolean, default: false },
-  autoClosed:     { type: Boolean, default: false },
-  lastHeartbeat:  { type: Date, default: Date.now }
-}, { timestamps: true });
-
-module.exports = mongoose.model('Attendance', attendanceSchema);
-
-
-// ============================================================
-// models/AttendanceConfig.js
-// ============================================================
-const attendanceConfigSchema = new mongoose.Schema({
-  heartbeatIntervalSeconds: { type: Number, default: 120 },
-  heartbeatTimeoutMinutes:  { type: Number, default: 5 },
-  shiftStartTime:           { type: String, default: '09:30' },
-  shiftEndTime:             { type: String, default: '18:30' },
-  updatedBy:                { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-}, { timestamps: true });
-
-module.exports = mongoose.model('AttendanceConfig', attendanceConfigSchema);
-
-
-// ============================================================
-// models/AttendanceCorrectionRequest.js
-// ============================================================
-const correctionRequestSchema = new mongoose.Schema({
-  userId:            { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  attendanceId:      { type: mongoose.Schema.Types.ObjectId, ref: 'Attendance', required: true },
-  requestedClockIn:  { type: Date },
-  requestedClockOut: { type: Date },
-  reason:            { type: String, required: true },
-  status:            { type: String, enum: ['Pending','Approved','Rejected'], default: 'Pending' },
-  reviewedBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-  reviewedAt:        { type: Date, default: null }
-}, { timestamps: true });
-
-module.exports = mongoose.model('AttendanceCorrectionRequest', correctionRequestSchema);
-
-
-// ============================================================
-// models/DeviceChangeRequest.js
-// ============================================================
-const deviceChangeRequestSchema = new mongoose.Schema({
-  userId:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  oldDeviceId: { type: String },
-  newDeviceId: { type: String, required: true },
-  status:      { type: String, enum: ['PENDING','APPROVED','REJECTED'], default: 'PENDING' },
-  reviewedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-  reviewedAt:  { type: Date, default: null }
-}, { timestamps: true });
-
-module.exports = mongoose.model('DeviceChangeRequest', deviceChangeRequestSchema);
-
-
-// ============================================================
-// models/UnauthorizedAttempt.js
-// ============================================================
-const unauthorizedAttemptSchema = new mongoose.Schema({
-  userId:            { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  attemptedDeviceId: { type: String, default: null },
-  attemptedAt:       { type: Date, default: Date.now },
-  action:            { type: String, enum: ['clock_in','clock_out','heartbeat'] },
-  reason:            { type: String }
-}, { timestamps: true });
-
-module.exports = mongoose.model('UnauthorizedAttempt', unauthorizedAttemptSchema);
-
-
-// ============================================================
-// models/HeartbeatLog.js
-// ============================================================
-const heartbeatLogSchema = new mongoose.Schema({
-  userId:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  receivedAt: { type: Date, default: Date.now },
-  clientTime: { type: Date }
-}, { timestamps: true });
-
-module.exports = mongoose.model('HeartbeatLog', heartbeatLogSchema);
-
-
-// ============================================================
-// models/Notification.js
-// ============================================================
-const notificationSchema = new mongoose.Schema({
-  userId:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type:    { type: String, required: true },
-  message: { type: String, required: true },
-  isRead:  { type: Boolean, default: false }
-}, { timestamps: true });
-
-module.exports = mongoose.model('Notification', notificationSchema);
-
-
-// ============================================================
-// models/LeaveType.js   (DYNAMIC LEAVE MASTER)
-// ============================================================
-const leaveTypeSchema = new mongoose.Schema({
-  name:                { type: String, required: true },
-  code:                { type: String, required: true, unique: true },
-  isPaid:              { type: Boolean, default: true },
-  defaultQuotaPerYear: { type: Number, default: 0 },
-  isActive:            { type: Boolean, default: true },
-  createdBy:           { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-}, { timestamps: true });
-
-module.exports = mongoose.model('LeaveType', leaveTypeSchema);
-
-
-// ============================================================
-// models/LeaveBalance.js
-// ============================================================
-const leaveBalanceSchema = new mongoose.Schema({
-  userId:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  leaveTypeId:   { type: mongoose.Schema.Types.ObjectId, ref: 'LeaveType', required: true },
-  year:          { type: Number, required: true },
-  allocatedDays: { type: Number, required: true },
-  usedDays:      { type: Number, default: 0 }
-}, { timestamps: true });
-
-leaveBalanceSchema.index({ userId: 1, leaveTypeId: 1, year: 1 }, { unique: true });
-
-module.exports = mongoose.model('LeaveBalance', leaveBalanceSchema);
-
-
-// ============================================================
-// models/LeaveRequest.js
-// ============================================================
-const leaveRequestSchema = new mongoose.Schema({
-  userId:          { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  leaveTypeId:     { type: mongoose.Schema.Types.ObjectId, ref: 'LeaveType', required: true },
-  fromDate:        { type: Date, required: true },
-  toDate:          { type: Date, required: true },
-  totalDays:       { type: Number, required: true },
-  reason:          { type: String },
-  status:          { type: String, enum: ['PENDING','APPROVED','REJECTED','CANCELLED'], default: 'PENDING' },
-  isPaidSnapshot:  { type: Boolean },
-  approvedBy:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-  approvedAt:      { type: Date, default: null },
-  rejectionReason: { type: String, default: null }
-}, { timestamps: true });
-
-module.exports = mongoose.model('LeaveRequest', leaveRequestSchema);
-
-
-// ============================================================
-// models/LeaveBalanceAdjustment.js
-// ============================================================
-const leaveBalanceAdjustmentSchema = new mongoose.Schema({
-  userId:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  leaveTypeId: { type: mongoose.Schema.Types.ObjectId, ref: 'LeaveType', required: true },
-  adjustedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  oldValue:    { type: Number, required: true },
-  newValue:    { type: Number, required: true },
-  reason:      { type: String, required: true },
-  adjustedAt:  { type: Date, default: Date.now }
-}, { timestamps: true });
-
-module.exports = mongoose.model('LeaveBalanceAdjustment', leaveBalanceAdjustmentSchema);
-
-
-// ============================================================
-// models/Payroll.js
-// ============================================================
-const payrollSchema = new mongoose.Schema({
-  userId:          { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  month:           { type: Number, required: true },
-  year:            { type: Number, required: true },
-  baseSalary:      { type: Number, required: true },
-  daysInMonth:     { type: Number, required: true },
-  presentDays:     { type: Number, required: true },
-  paidLeaveDays:   { type: Number, default: 0 },
-  unpaidLeaveDays: { type: Number, default: 0 },
-  absentDays:      { type: Number, default: 0 },
-  perDaySalary:    { type: Number, required: true },
-  totalDeduction:  { type: Number, required: true },
-  netSalary:       { type: Number, required: true },
-  generatedAt:     { type: Date, default: Date.now },
-  pdfPath:         { type: String, default: null }  // /storage/salary/<userId>/<year>/...
-}, { timestamps: true });
-
-payrollSchema.index({ userId: 1, month: 1, year: 1 }, { unique: true });
-
-module.exports = mongoose.model('Payroll', payrollSchema);
-
-
-// ============================================================
-// models/OfferLetter.js
-// ============================================================
-const offerLetterSchema = new mongoose.Schema({
-  userId:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  generatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  filePath:    { type: String, required: true },  // /storage/offer_letters/<userId>/...
-
-  designationSnapshot: { type: String, required: true },
-  departmentSnapshot:  { type: String, required: true },
-  baseSalarySnapshot:  { type: Number, required: true },
-  joiningDateSnapshot: { type: Date, required: true },
-
-  status:      { type: String, enum: ['GENERATED','SENT','ACKNOWLEDGED'], default: 'GENERATED' },
-  generatedAt: { type: Date, default: Date.now }
-}, { timestamps: true });
-
-module.exports = mongoose.model('OfferLetter', offerLetterSchema);
-
-================================================================================
-PART 8 — FULL API CONTRACT (ALL ENDPOINTS, CONSOLIDATED)
-================================================================================
-
---- Identity: RoleMaster + User ---
-POST   /api/role-master/create              (Super Admin) { roleName, roleCode, description }
-GET    /api/role-master/all
-POST   /api/auth/login                      { email, password }
-POST   /api/users/create                    (Super Admin/HR) { name, email, password, roleId,
-                                              baseSalary, department, designation, joiningDate }
-  -> creates User + role-profile doc
-  -> AUTO-TRIGGERS Offer Letter generation (Part 6)
-  -> response: { user, offerLetter: { id, filePath } }
-GET    /api/users/:id
-PUT    /api/users/:id
-GET    /api/users?role=&department=
-
---- Device Registration ---
-POST   /api/device/register                 { userId, deviceId }
-POST   /api/device/approve                  (HR/Super Admin) { requestId, action }
-GET    /api/device/status?userId=
-
---- Attendance ---
-POST   /api/attendance/event                { userId, deviceId, type, clientTime }
-POST   /api/attendance/sync                 (offline queue flush)
-GET    /api/attendance/my?month=&year=
-GET    /api/attendance/all?month=&year=&userId=   (HR/Super Admin)
-POST   /api/attendance/correction/request   { attendanceId, requestedClockIn, requestedClockOut, reason }
-POST   /api/attendance/correction/approve   (HR/Super Admin) { requestId }
-POST   /api/attendance/correction/reject    (HR/Super Admin) { requestId, reason }
-GET    /api/attendance-config
-PUT    /api/attendance-config               (Super Admin only)
-
---- Leave Type (Dynamic Master) ---
-POST   /api/leave-type/create               (Super Admin) { name, code, isPaid, defaultQuotaPerYear }
-PUT    /api/leave-type/:id/update           (Super Admin)
-PUT    /api/leave-type/:id/deactivate       (Super Admin)
-GET    /api/leave-type/active               (everyone: dropdown source)
-GET    /api/leave-type/all                  (Super Admin: incl. inactive)
-
---- Leave Balance ---
-GET    /api/leave-balance/my?year=
-GET    /api/leave-balance/:userId?year=     (HR/Super Admin)
-POST   /api/leave-balance/adjust            (HR/Super Admin) { userId, leaveTypeId, newValue, reason }
-
---- Leave Request ---
-POST   /api/leave/apply                     { userId, leaveTypeId, fromDate, toDate, reason }
-GET    /api/leave/my?year=
-POST   /api/leave/cancel                    { leaveRequestId }
-GET    /api/leave/pending                   (Super Admin only)
-POST   /api/leave/approve                   (Super Admin only) { leaveRequestId }
-POST   /api/leave/reject                    (Super Admin only) { leaveRequestId, rejectionReason }
-GET    /api/leave/all?department=&status=   (HR view)
-
---- Payroll ---
-POST   /api/payroll/generate                (Super Admin) { month, year }
-POST   /api/payroll/generate/:userId        (Super Admin) { month, year }
-GET    /api/payroll/my?month=&year=
-GET    /api/payroll/my/download?month=&year=              (self, own PDF from /storage/salary/...)
-GET    /api/payroll/all?month=&year=        (Super Admin/HR)
-GET    /api/payroll/download/:userId?month=&year=          (Super Admin)
-GET    /api/payroll/download-all?month=&year=               (Super Admin, bulk zip)
-
---- Offer Letter ---
-GET    /api/offer-letter/:userId
-GET    /api/offer-letter/:userId/download   (self-scoped for employee; unrestricted for Admin/HR)
-POST   /api/offer-letter/:userId/regenerate (Super Admin/HR only)
-
---- Notifications ---
-GET    /api/notifications/my
-PUT    /api/notifications/:id/read
-
-================================================================================
-PART 9 — NODE.JS FOLDER STRUCTURE (FINAL, CONSOLIDATED)
-================================================================================
-/server
-  /models
-    RoleMaster.js, User.js
-    SuperAdmin.js, HR.js, ProjectManager.js, Architect.js, SiteEngineer.js, Employee.js
-    Attendance.js, AttendanceConfig.js, AttendanceCorrectionRequest.js
-    DeviceChangeRequest.js, UnauthorizedAttempt.js, HeartbeatLog.js
-    LeaveType.js, LeaveBalance.js, LeaveRequest.js, LeaveBalanceAdjustment.js
-    Payroll.js
-    OfferLetter.js
-    Notification.js
-    Project.js, SiteLocation.js    (referenced only, out of deep scope here)
-  /controllers
-    roleMasterController.js, userController.js, deviceController.js
-    attendanceController.js, correctionController.js
-    leaveTypeController.js, leaveBalanceController.js, leaveRequestController.js
-    payrollController.js, offerLetterController.js, notificationController.js
-  /routes
-    (one route file per controller above)
-  /middleware
-    authMiddleware.js        (JWT verify)
-    roleMiddleware.js        (RBAC guard)
-  /cron
-    heartbeatTimeoutCron.js  (every 1 min)
-    payrollGenerationCron.js (1st of month)
-  /utils
-    salaryCalculator.js
-    payslipPdfGenerator.js
-    offerLetterPdfGenerator.js
-    dynamicLeaveBalanceSeeder.js
-    storagePathResolver.js
-  /config
-    db.js
-  server.js
-  .env
-/storage
-  /offer_letters/.gitkeep
-  /salary/.gitkeep
-
-================================================================================
-PART 10 — MASTER STEP-BY-STEP IMPLEMENTATION PLAN (BUILD ORDER)
-================================================================================
-
-STEP 1  — Project setup: Express + MongoDB connection, GET /api/health
-STEP 2  — RoleMaster + User + Auth (JWT) + authMiddleware/roleMiddleware
-STEP 3  — Role Profile auto-creation on user registration
-STEP 4  — storagePathResolver.js (offer letter + salary paths, auto-mkdir)
-STEP 5  — Device registration + Attendance core (event API, server-time authority)
-STEP 6  — Offline sync endpoint (/attendance/sync, isOfflineEntry flag)
-STEP 7  — Heartbeat-timeout cron (auto clock-out after 5 min silence)
-STEP 8  — Attendance correction workflow (request/approve/reject)
-STEP 9  — OfferLetter model + PDF generator + wire into user registration
-STEP 10 — Offer Letter download/regenerate endpoints (self-scoped + admin)
-STEP 11 — Dynamic LeaveType master (CRUD + seed Casual/Sick/Unpaid)
-STEP 12 — LeaveBalance auto-seeding on new LeaveType creation (sync, critical)
-STEP 13 — LeaveRequest apply/cancel/approve/reject + isPaidSnapshot logic
-STEP 14 — salaryCalculator.js (pure function, test against 20000/30=666.67 example)
-STEP 15 — Payroll generation (all users + single user) + payrollGenerationCron
-STEP 16 — payslipPdfGenerator.js updated to save under /storage/salary/<userId>/<year>/
-STEP 17 — Payroll download endpoints (self, admin single, admin bulk zip)
-STEP 18 — Notifications wired into: leave applied/approved/rejected, correction
-          raised, unauthorized device attempt, offer letter ready
-STEP 19 — RBAC hardening pass across every endpoint + permission matrix tests
-STEP 20 — Full test suite (unit + integration) + README + client UAT prep
-
-(Each step: implement -> run -> verify against spec -> confirm before next step)
-
-================================================================================
-PART 11 — FORMULAS & WORKED EXAMPLES
-================================================================================
-Per-Day Salary:      perDaySalary = baseSalary / daysInMonth
-Deduction:           deductionAmount = perDaySalary * unpaidOrAbsentDays
-Net Salary:          netSalary = baseSalary - deductionAmount
-
-Example 1 (client's exact numbers):
-  baseSalary=20000, daysInMonth=30 -> perDaySalary=666.67
-  1 unpaid day -> deduction=666.67 -> netSalary=19333.33
-
-Example 2 (multiple unpaid days):
-  baseSalary=20000, daysInMonth=30, unpaidDays=3
-  deduction = 666.67*3 = 2000.01 -> netSalary=17999.99
-
-Example 3 (31-day month):
-  baseSalary=31000, daysInMonth=31 -> perDaySalary=1000.00 exactly
-  2 unpaid days -> deduction=2000.00 -> netSalary=29000.00
-
-Rounding: always Math.round(value*100)/100 — never truncate.
-
-================================================================================
-PART 12 — EDGE CASES & GUIDANCE (ALL MODULES)
-================================================================================
-Attendance:
-  - Multiple monitors/RDP/VPN -> one session-id per OS login
-  - Sleep/hibernate (not shutdown) -> don't auto-close if heartbeat
-    resumes within 10 min
-  - Pending device-change request -> don't block work; keep last
-    approved device active meanwhile
-
-Leave:
-  - New LeaveType added mid-year -> LeaveBalance seeding MUST run
-    synchronously right at creation, not deferred to a cron
-  - Leave spanning month-end -> split days proportionally across the
-    two months for payroll purposes
-  - LeaveType isPaid flag changes after approval -> always use
-    isPaidSnapshot on LeaveRequest, never re-read live LeaveType value
-
-Payroll:
-  - baseSalary <= 0 -> reject generation with clear error, don't
-    produce a silent ₹0 payslip
-  - Re-running generate for same month -> UPSERT via unique index
-    (userId, month, year), never duplicate
-  - Employee joins/leaves mid-month -> adjust effective daysInMonth
-    base for that employee, document the chosen policy
-
-Offer Letter / Storage:
-  - Salary/designation changes after offer letter generated -> keep
-    snapshot fields unchanged; use /regenerate for a corrected NEW record
-  - Registration partially fails (User created, PDF generation errors)
-    -> flag clearly for manual regenerate, don't leave a silently
-    broken employee record
-  - Legal/employment-terms wording in the offer letter template must
-    be client-approved before Production use
-
-================================================================================
-PART 13 — SECURITY, AUDIT & DATA-INTEGRITY RULES
-================================================================================
-- JWT auth + roleMiddleware on EVERY route, not just sensitive ones
-- Server time is the ONLY authoritative timestamp for attendance/
-  approval events, everywhere
-- Self-scoped endpoints (payslip, offer letter, attendance "my") derive
-  userId from JWT, NEVER from a client-supplied parameter
-- Every approval/rejection/adjustment records who + when
-  (approvedBy/reviewedBy/adjustedBy + timestamps)
-- Passwords: bcrypt hash only, never returned in API responses
-- Device mismatches always logged to UnauthorizedAttempt, never
-  silently allowed
-- Soft-delete only for master records (LeaveType, User) — never hard-delete
-- Monetary values always rounded to 2 decimals via one shared utility
-
-================================================================================
-PART 14 — PRODUCT-LEVEL STANDARDS (TESTING, DEPLOYMENT, BACKUP, HANDOFF)
-================================================================================
-
-14.1 Environments: Development -> Staging (Client UAT) -> Production,
-     each with its own MongoDB DB and .env, never shared.
-
-14.2 Testing (mandatory, not optional given financial impact):
-  - Unit: salary formula (20000/30=666.67 case), dynamic LeaveType ->
-    auto-balance seeding, heartbeat-timeout logic, device-mismatch
-    rejection, leave balance validation
-  - Integration: full attendance lifecycle, full leave lifecycle, full
-    payroll lifecycle (generate -> PDF -> restricted download)
-  - UAT: client walks through apply/approve leave, view attendance,
-    generate payroll, download payslips (admin + employee), and
-    explicitly signs off on deduction numbers before go-live
-  - Security: cross-user data access attempts must be blocked (403);
-    unregistered-device attendance attempts must be rejected + logged
-
-14.3 Deployment:
-  - Dev -> Staging -> Production, no environment skipped
-  - Each release: changelog + modules affected + rollback plan
-  - DB migrations scripted and tested on Staging first
-  - Post-deploy smoke test: login, one attendance round-trip, one
-    leave round-trip, payroll generation for a test month
-
-14.4 Monitoring & Alerting:
-  - Structured logs (winston/pino), retained 30+ days
-  - Cron health checks for heartbeatTimeoutCron + payrollGenerationCron
-    — alert if either fails to run
-  - Security event alerts for unauthorized device attempts / repeated
-    failed logins
-
-14.5 Backup & Disaster Recovery:
-  - Daily MongoDB backups, 30-day rolling retention, periodically
-    restore-tested
-  - /storage root (offer_letters + salary) backed up alongside the
-    database — not just local disk reliance
-  - Documented recovery runbook; agreed RTO/RPO with client
-
-14.6 Documentation Deliverables (to hand to client):
-  - This master document, API reference, Admin User Guide, Employee
-    User Guide, Deployment Guide, Known Limitations doc
-
-14.7 Client Handoff Checklist:
-  - All modules pass acceptance criteria
-  - Client UAT signed off in writing
-  - Production deployed + smoke-tested
-  - Real data seeded (not placeholders)
-  - Admin trained on: adding leave types, approving leave, generating/
-    downloading payroll, offer letter regeneration
-  - Backups confirmed running
-  - Credentials handed over via secure channel (not plaintext chat/email)
-
-14.8 Support & SLA: define bug-fix SLAs (critical: 24h, non-critical:
-     3-5 business days), support channel, maintenance window, scope of
-     free vs. billable post-launch work.
-
-14.9 Change Management: semantic versioning; any scope addition beyond
-     Part 1.2 requires a written Change Request before work starts;
-     maintain CHANGELOG.md per release.
-
-================================================================================
-PART 15 — DEFINITION OF DONE / SIGN-OFF CRITERIA
-================================================================================
-This product is DONE and ready for client sign-off when:
-  1. Identity, Attendance, Leave, Payroll, and Offer Letter modules all
-     meet their respective acceptance criteria (Part 14.2)
-  2. Client has performed UAT on Staging and approved in writing
-  3. Security requirements (Part 13) are implemented and verified
-  4. Backups (including /storage) are running and verified restorable
-  5. All documentation deliverables (Part 14.6) are handed over
-  6. Client-side Admin can independently: add a leave type, approve a
-     leave request, generate + download payroll, and regenerate an
-     offer letter — without developer assistance
-  7. Support/SLA terms (Part 14.8) are agreed and documented
-
-Only after all 7 conditions are met is this marked a completed,
-production-ready client deliverable.
-
-================================================================================
-END OF MASTER DOCUMENT
-================================================================================
+# NIRMAN ARCHITECTS - COMPLETE PROJECT API MASTER DIRECTORY & WORKING SPECIFICATION
+
+This document provides a comprehensive, production-grade API reference and working specification for **every single API endpoint** in the **Nirman Architects** codebase (covering HRM, Core Identity, Attendance, Leave, Payroll, Offer Letters, Device Binding, Screenshots, App Usage, Notifications, and CRM Modules 1, 2, and 3).
+
+---
+
+## TABLE OF CONTENTS
+1. [Authentication & User Management APIs](#1-authentication--user-management-apis)
+2. [Dynamic Role Master APIs](#2-dynamic-role-master-apis)
+3. [Device Binding & Heartbeat APIs](#3-device-binding--heartbeat-apis)
+4. [Attendance Module APIs](#4-attendance-module-apis)
+5. [Site Location Geo-Fencing APIs](#5-site-location-geo-fencing-apis)
+6. [Dynamic Leave Master & Balance APIs](#6-dynamic-leave-master--balance-apis)
+7. [Payroll & PDF Payslip APIs](#7-payroll--pdf-payslip-apis)
+8. [Offer Letter APIs](#8-offer-letter-apis)
+9. [Screenshot Activity Tracking APIs](#9-screenshot-activity-tracking-apis)
+10. [Desktop Application Usage Tracking APIs](#10-desktop-application-usage-tracking-apis)
+11. [Notification APIs](#11-notification-apis)
+12. [CRM Module 1 - Lead Management APIs](#12-crm-module-1---lead-management-apis)
+13. [CRM Module 2 - Client Master & ClientContact APIs](#13-crm-module-2---client-master--clientcontact-apis)
+14. [CRM Module 2 - Client Portal Authentication APIs](#14-crm-module-2---client-portal-authentication-apis)
+15. [CRM Module 3 - Client-Project Linkage APIs](#15-crm-module-3---client-project-linkage-apis)
+16. [Health & System APIs](#16-health--system-apis)
+
+---
+
+## AUTHENTICATION & JWT TOKEN SCOPES
+
+The application uses two distinct, non-interchangeable JWT token types:
+
+1. **Employee JWT (`JWT_SECRET`)**:
+   - Header: `Authorization: Bearer <EMPLOYEE_JWT_TOKEN>`
+   - Payload: `{ id/userId, email, role/roleCode, roleId }`
+   - Used for internal employee routes (HRM, PM, Admin, Super Admin).
+
+2. **Client Portal JWT (`CLIENT_JWT_SECRET`)**:
+   - Header: `Authorization: Bearer <CLIENT_PORTAL_JWT_TOKEN>`
+   - Payload: `{ contactId, clientId, permissionLevel, isClientPortal: true }`
+   - Used specifically for client portal routes under `/api/client-auth` and `/api/client/projects`.
+
+---
+
+## 1. AUTHENTICATION & USER MANAGEMENT APIs
+
+### 1.1 `POST /api/auth/register` (or `POST /api/register`)
+- **Description**: Public or Admin user registration endpoint. Creates `User` document and matching role-profile document (`SuperAdmin`, `HR`, `ProjectManager`, `Architect`, `SiteEngineer`, or `Employee`).
+- **Auth**: Public / Unrestricted.
+- **Request Body**:
+  ```json
+  {
+    "name": "Rohan Sharma",
+    "email": "rohan.sharma@nirman.com",
+    "password": "SecretPassword123!",
+    "phone": "9876543210",
+    "roleId": "64bd9f0296e625a5857e4e01",
+    "department": "Architecture",
+    "designation": "Senior Architect",
+    "baseSalary": 25000,
+    "joiningDate": "2026-08-01",
+    "deviceId": "DESKTOP-GUID-12345"
+  }
+  ```
+- **Response** (`201 Created`):
+  ```json
+  {
+    "success": true,
+    "message": "User registered successfully",
+    "user": { "_id": "...", "name": "Rohan Sharma", "email": "rohan.sharma@nirman.com" }
+  }
+  ```
+
+### 1.2 `POST /api/auth/login` (or `POST /api/login`)
+- **Description**: Authenticates employee credentials and returns an Employee JWT token. Rate limited to 10 attempts per 15 minutes.
+- **Auth**: Public / Unrestricted.
+- **Request Body**:
+  ```json
+  {
+    "email": "admin@nirman.com",
+    "password": "AdminPassword123!"
+  }
+  ```
+- **Response** (`200 OK`):
+  ```json
+  {
+    "success": true,
+    "message": "Login successful",
+    "token": "eyJhbGciOiJIUzI1NiIsIn...",
+    "user": { "id": "...", "name": "Admin", "email": "admin@nirman.com", "role": "SUPER_ADMIN" }
+  }
+  ```
+
+### 1.3 `GET /api/roles`
+- **Description**: Retrieves active roles list for user creation dropdowns.
+- **Auth**: Public / Unrestricted.
+- **Response** (`200 OK`): Array of dynamic roles from `RoleMaster`.
+
+### 1.4 `POST /api/users/create`
+- **Description**: Registers a new employee AND automatically generates their Offer Letter PDF under `/storage/offer_letters/<userId>/`.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR` role required).
+- **Request Body**:
+  ```json
+  {
+    "name": "Anjali Sharma",
+    "email": "anjali.sharma@nirman.com",
+    "password": "Password@123",
+    "phone": "9876500011",
+    "roleId": "64bd9f0296e625a5857e4e01",
+    "department": "Architecture",
+    "designation": "Junior Architect",
+    "baseSalary": 25000,
+    "joiningDate": "2026-08-01"
+  }
+  ```
+- **Response** (`201 Created`): Returns created user and generated `offerLetter` metadata with PDF file path.
+
+### 1.5 `GET /api/users`
+- **Description**: Retrieves paginated list of users with optional filtering by `role`, `department`, or `search`.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+- **Query Params**: `role`, `department`, `search`, `page`, `limit`.
+
+### 1.6 `GET /api/users/:id`
+- **Description**: Gets full user profile by MongoDB `_id`.
+- **Auth**: Internal Employee (Authenticated).
+
+### 1.7 `PUT /api/users/:id`
+- **Description**: Updates profile fields for a user.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+- **Request Body**: `{ name, phone, department, designation, baseSalary, joiningDate, deviceId, deviceStatus, isActive, roleId }`.
+
+### 1.8 `DELETE /api/users/:id` (or `DELETE /api/user/:id`)
+- **Description**: Cascade deletes user and ALL associated data across attendance, screenshots, app usage, leaves, payrolls, offer letters, notifications, and physical storage files.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+
+### 1.9 `PUT /api/users/:id/change-password` (Aliases: `PATCH`, `POST`, `PUT /users/change-password/:id`)
+- **Description**: Admin endpoint to directly update an employee's password.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+- **Request Body**: `{ "newPassword": "NewSecretPassword123!" }`.
+
+---
+
+## 2. DYNAMIC ROLE MASTER APIs
+
+### 2.1 `GET /api/role-master/all`
+- **Description**: Retrieves all configured dynamic roles in the system.
+- **Auth**: Public or Authenticated.
+
+### 2.2 `POST /api/role-master/create`
+- **Description**: Creates a new dynamic role code and role name (e.g. `INTERN`, `SENIOR_ARCHITECT`).
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+- **Request Body**: `{ "roleName": "Senior Architect", "roleCode": "SENIOR_ARCHITECT", "description": "Team lead architect" }`.
+
+---
+
+## 3. DEVICE BINDING & HEARTBEAT APIs
+
+### 3.1 `POST /api/device/register`
+- **Description**: Binds a machine GUID/Device ID to a user account. Automatically approves first device; creates a `PENDING` request for secondary devices.
+- **Auth**: Internal Employee.
+- **Request Body**: `{ "userId": "...", "deviceId": "DESKTOP-GUID-12345" }`.
+
+### 3.2 `POST /api/device/heartbeat`
+- **Description**: 30-Second Desktop Agent heartbeat ping updating `lastHeartbeat` timestamp on active attendance session.
+- **Auth**: Internal Employee.
+- **Request Body**: `{ "deviceId": "DESKTOP-GUID-12345", "currentTime": "2026-08-04T10:00:00Z" }`.
+
+### 3.3 `GET /api/device/status`
+- **Description**: Gets logged-in user device binding status & pending change requests.
+- **Auth**: Internal Employee.
+
+### 3.4 `GET /api/device/pending`
+- **Description**: Lists all pending device change requests across the company.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+
+### 3.5 `POST /api/device/approve`
+- **Description**: Approves or rejects a device change request.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+- **Request Body**: `{ "requestId": "...", "action": "APPROVE" }`.
+
+### 3.6 `POST /api/device/assign`
+- **Description**: Directly assigns a Device ID to an employee.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+- **Request Body**: `{ "targetUserId": "...", "deviceId": "GUID-999" }`.
+
+---
+
+## 4. ATTENDANCE MODULE APIs
+
+### 4.1 `POST /api/attendance/clock-in`
+- **Description**: Clocks in official attendance session for logged-in user. Validates server-time authority and device binding.
+- **Auth**: Internal Employee.
+- **Request Body**: `{ "clientTime": "...", "deviceId": "GUID-123", "ip": "192.168.1.100" }`.
+
+### 4.2 `POST /api/attendance/clock-out`
+- **Description**: Clocks out active attendance session for logged-in user.
+- **Auth**: Internal Employee.
+
+### 4.3 `GET /api/attendance/today`
+- **Description**: Retrieves current day's attendance status and active session info.
+- **Auth**: Internal Employee.
+
+### 4.4 `POST /api/attendance/event` (Aliases: `/heartbeat`, `/clock`)
+- **Description**: Universal event handler for Desktop Agent (clock-in, clock-out, heartbeat).
+- **Auth**: Internal Employee.
+
+### 4.5 `POST /api/attendance/sync`
+- **Description**: Flushes offline attendance events from Desktop Agent's local buffer into the central Attendance collection (`isOfflineEntry: true`).
+- **Auth**: Internal Employee.
+
+### 4.6 `GET /api/attendance/my`
+- **Description**: Gets monthly attendance logs for the logged-in user.
+- **Auth**: Internal Employee.
+- **Query Params**: `month`, `year`.
+
+### 4.7 `GET /api/attendance/all`
+- **Description**: Retrieves attendance logs for all employees.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+- **Query Params**: `month`, `year`, `userId`.
+
+### 4.8 `POST /api/attendance/correction/request`
+- **Description**: Raises an attendance correction request for a specific date/session.
+- **Auth**: Internal Employee.
+- **Request Body**: `{ "attendanceId": "...", "requestedClockIn": "...", "requestedClockOut": "...", "reason": "System force shut down" }`.
+
+### 4.9 `POST /api/attendance/correction/approve`
+- **Description**: Approves an attendance correction request.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+- **Request Body**: `{ "requestId": "..." }`.
+
+### 4.10 `POST /api/attendance/correction/reject`
+- **Description**: Rejects an attendance correction request.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+- **Request Body**: `{ "requestId": "...", "reason": "Insufficient proof" }`.
+
+### 4.11 `GET /api/attendance/config`
+- **Description**: Gets attendance config parameters (heartbeat interval, timeout threshold, shift timing).
+- **Auth**: Internal Employee.
+
+### 4.12 `PUT /api/attendance/config`
+- **Description**: Updates attendance configuration.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+
+---
+
+## 5. SITE LOCATION GEO-FENCING APIs
+
+### 5.1 `POST /api/site-locations`
+- **Description**: Configures GPS coordinates and allowed radius in meters for a project site geo-fence.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+- **Request Body**: `{ "projectId": "...", "projectName": "Nirman Tower", "lat": 23.0225, "lng": 72.5714, "radiusMeters": 100 }`.
+
+### 5.2 `GET /api/site-locations`
+- **Description**: Retrieves all configured project site geo-fences.
+- **Auth**: Internal Employee.
+
+---
+
+## 6. DYNAMIC LEAVE MASTER & BALANCE APIs
+
+### 6.1 `GET /api/leave-type/active`
+- **Description**: Retrieves active leave types for application dropdowns.
+- **Auth**: Public or Authenticated.
+
+### 6.2 `GET /api/leave-type/all`
+- **Description**: Retrieves all leave types including inactive ones.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+
+### 6.3 `POST /api/leave-type/create`
+- **Description**: Creates a new dynamic leave type (e.g. "Paternity Leave"). **Auto-seeds LeaveBalance rows for all active employees synchronously**.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+- **Request Body**: `{ "name": "Paternity Leave", "code": "PL", "isPaid": true, "defaultQuotaPerYear": 5 }`.
+
+### 6.4 `PUT /api/leave-type/:id/update`
+- **Description**: Updates leave type configuration.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+
+### 6.5 `PUT /api/leave-type/:id/deactivate`
+- **Description**: Deactivates a leave type (`isActive: false`).
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+
+### 6.6 `POST /api/leave/apply`
+- **Description**: Employee applies for leave.
+- **Auth**: Internal Employee.
+- **Request Body**: `{ "leaveTypeId": "...", "fromDate": "2026-08-10", "toDate": "2026-08-12", "reason": "Family function" }`.
+
+### 6.7 `GET /api/leave/my`
+- **Description**: Retrieves logged-in user's leave requests history.
+- **Auth**: Internal Employee.
+
+### 6.8 `POST /api/leave/cancel`
+- **Description**: Cancels a pending leave request.
+- **Auth**: Internal Employee.
+- **Request Body**: `{ "leaveRequestId": "..." }`.
+
+### 6.9 `GET /api/leave/pending`
+- **Description**: Gets all pending leave requests requiring approval.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+
+### 6.10 `POST /api/leave/approve`
+- **Description**: Approves a leave request, snapshots `isPaidSnapshot`, and updates leave balance.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+- **Request Body**: `{ "leaveRequestId": "..." }`.
+
+### 6.11 `POST /api/leave/reject`
+- **Description**: Rejects a leave request with a rejection reason.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+- **Request Body**: `{ "leaveRequestId": "...", "rejectionReason": "Overlapping project deadline" }`.
+
+### 6.12 `GET /api/leave/all`
+- **Description**: Retrieves all leave requests across the company.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+
+### 6.13 `GET /api/leave-balance/my` (or `/api/leave/balance/my`)
+- **Description**: Gets logged-in user's leave balances for current year.
+- **Auth**: Internal Employee.
+
+### 6.14 `GET /api/leave-balance/:userId` (or `/api/leave/balance/:userId`)
+- **Description**: Gets leave balances for a specific user.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+
+### 6.15 `POST /api/leave-balance/adjust` (or `/api/leave/balance/adjust`)
+- **Description**: Manually adjusts an employee's leave balance and logs entry in `LeaveBalanceAdjustment`.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+- **Request Body**: `{ "userId": "...", "leaveTypeId": "...", "newValue": 15, "reason": "Bonus performance leave allocation" }`.
+
+---
+
+## 7. PAYROLL & PDF PAYSLIP APIs
+
+### 7.1 `GET /api/payroll/my`
+- **Description**: Retrieves logged-in user's monthly payroll history.
+- **Auth**: Internal Employee.
+
+### 7.2 `GET /api/payroll/my/download`
+- **Description**: Self-service download of own PDF payslip.
+- **Auth**: Internal Employee.
+- **Query Params**: `month`, `year`.
+
+### 7.3 `GET /api/payroll/all`
+- **Description**: Retrieves company-wide payroll calculations for a specific month/year.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+- **Query Params**: `month`, `year`.
+
+### 7.4 `POST /api/payroll/generate`
+- **Description**: Calculates monthly payroll for all active employees using formula: `perDaySalary = round2(baseSalary / daysInMonth)`, `totalDeduction = round2(perDaySalary * (unpaidLeaveDays + absentDays))`, `netSalary = round2(baseSalary - totalDeduction)`. Renders PDF payslips under `/storage/salary/<userId>/<year>/`.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+- **Request Body**: `{ "month": 8, "year": 2026 }`.
+
+### 7.5 `POST /api/payroll/generate/:userId`
+- **Description**: Generates/re-calculates monthly payroll for a single user.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+- **Request Body**: `{ "month": 8, "year": 2026 }`.
+
+### 7.6 `GET /api/payroll/download-all`
+- **Description**: Bulk downloads all employee payslips for a month as a ZIP archive.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+- **Query Params**: `month`, `year`.
+
+### 7.7 `GET /api/payroll/download/:userId`
+- **Description**: Admin download of a specific employee's PDF payslip.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+- **Query Params**: `month`, `year`.
+
+---
+
+## 8. OFFER LETTER APIs
+
+### 8.1 `GET /api/offer-letter/:userId`
+- **Description**: Gets Offer Letter metadata for an employee.
+- **Auth**: Internal Employee (Self or `SUPER_ADMIN`/`HR`).
+
+### 8.2 `GET /api/offer-letter/:userId/download`
+- **Description**: Downloads Offer Letter PDF from `/storage/offer_letters/<userId>/`.
+- **Auth**: Internal Employee (Self or `SUPER_ADMIN`/`HR`).
+
+### 8.3 `POST /api/offer-letter/:userId/regenerate`
+- **Description**: Regenerates a new Offer Letter PDF version while preserving snapshot audit parameters.
+- **Auth**: Internal Employee (`SUPER_ADMIN` or `HR`).
+
+---
+
+## 9. SCREENSHOT ACTIVITY TRACKING APIs
+
+### 9.1 `GET /api/screenshot/config`
+- **Description**: Retrieves screenshot capture intervals and active tracking hours for Desktop Agent.
+- **Auth**: Public or Agent Authenticated.
+
+### 9.2 `POST /api/screenshot/upload`
+- **Description**: Multipart upload for workstation screenshots captured by Desktop Agent. Saves image file to disk.
+- **Auth**: Internal Employee (Multer parse + JWT Auth).
+
+### 9.3 `POST /api/screenshot/sync`
+- **Description**: Syncs offline captured screenshots buffer from Desktop Agent.
+- **Auth**: Internal Employee.
+
+### 9.4 `PUT /api/screenshot/config`
+- **Description**: Updates screenshot capture configuration settings.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+
+### 9.5 `GET /api/screenshot/employee/:userId`
+- **Description**: Retrieves screenshot records for an employee for a date range.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+
+### 9.6 `GET /api/screenshot/employee/:userId/download-all`
+- **Description**: Downloads all screenshots for an employee as a ZIP file.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+
+---
+
+## 10. DESKTOP APPLICATION USAGE TRACKING APIs
+
+### 10.1 `POST /api/app-usage/sync`
+- **Description**: Flushes 5-minute batch of desktop application usage metrics (appName, secondsActive, windowTitle) from Desktop Agent. Blocked for SuperAdmin tracking.
+- **Auth**: Internal Employee (`authMiddleware` + `blockSuperAdminTracking`).
+
+### 10.2 `GET /api/app-usage/config`
+- **Description**: Gets application tracking configuration parameters.
+- **Auth**: Internal Employee.
+
+### 10.3 `PUT /api/app-usage/config`
+- **Description**: Updates application usage tracking parameters.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+
+### 10.4 `GET /api/app-usage/employee/:userId`
+- **Description**: Gets employee application usage breakdown and daily summaries.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+
+### 10.5 `GET /api/app-usage/employee/:userId/export`
+- **Description**: Exports employee application usage data as CSV or JSON format.
+- **Auth**: Internal Employee (`SUPER_ADMIN` ONLY).
+- **Query Params**: `format` (`csv` or `json`).
+
+---
+
+## 11. NOTIFICATION APIs
+
+### 11.1 `GET /api/notifications/my` (or `GET /api/notifications`)
+- **Description**: Gets notifications for the logged-in user.
+- **Auth**: Internal Employee.
+
+### 11.2 `PUT /api/notifications/:id/read`
+- **Description**: Marks a notification as read (`isRead: true`).
+- **Auth**: Internal Employee.
+
+---
+
+## 12. CRM MODULE 1 - LEAD MANAGEMENT APIs
+
+### 12.1 `POST /api/leads/create` (or `POST /api/leads`)
+- **Description**: Creates a new sales Lead. Evaluates active phone duplicates (`duplicateWarning: true`).
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+- **Request Body**:
+  ```json
+  {
+    "name": "Mr. Hirak Patel",
+    "phone": "9876543210",
+    "email": "hirak@patel.com",
+    "source": "Referral",
+    "requirementNotes": "Luxury 4BHK Villa interior design in Satellite",
+    "assignedTo": "64bd9f0296e625a5857e4e10",
+    "nextFollowUpDate": "2026-08-10T10:00:00Z"
+  }
+  ```
+
+### 12.2 `GET /api/leads`
+- **Description**: Retrieves paginated, searchable, role-scoped leads list or full Kanban pipeline view (`pipelineView=true`).
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+- **Query Params**: `status`, `assignedTo`, `search`, `page`, `limit`, `pipelineView`.
+
+### 12.3 `GET /api/leads/followups/due`
+- **Description**: Gets active leads with follow-ups due on or before specified date (excludes WON and LOST leads).
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+- **Query Params**: `date`.
+
+### 12.4 `GET /api/leads/:id`
+- **Description**: Gets full lead details and computed contact metrics (`interactionCount`, `daysSinceLastContact`, `daysSinceCreation`).
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+
+### 12.5 `PUT /api/leads/:id/update` (or `PUT /api/leads/:id`)
+- **Description**: Updates lead general fields (excluding status). Reassignment of `assignedTo` is restricted to Admins.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+
+### 12.6 `PUT /api/leads/:id/update-status`
+- **Description**: Updates lead lifecycle status (`NEW`, `CONTACTED`, `QUALIFIED`, `PROPOSAL_SENT`, `NEGOTIATION`, `WON`, `LOST`). **Mandatory `lostReason` required if `newStatus === 'LOST'`**. Logs audit entry to `LeadStatusHistory`.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+- **Request Body**: `{ "newStatus": "LOST", "lostReason": "Client selected competitor due to budget" }`.
+
+### 12.7 `POST /api/leads/:id/log-interaction`
+- **Description**: Logs an interaction touchpoint (`Call`, `Meeting`, `Email`, `Note`) for a lead.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+- **Request Body**: `{ "type": "Call", "notes": "Discussed preliminary budget and floor plans" }`.
+
+### 12.8 `GET /api/leads/:id/interactions`
+- **Description**: Gets chronological interaction timeline for a lead.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+
+### 12.9 `GET /api/leads/:id/status-history`
+- **Description**: Gets chronological status-change audit trail for a lead.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+
+### 12.10 `POST /api/leads/:id/convert-to-client`
+- **Description**: Converts a WON Lead into a formal `Client` account and primary `ClientContact` (`OWNER` level with temporary password). Updates `Lead.status = 'WON'` and `Lead.convertedToClientId = Client._id`. Requires `primaryContactEmail` if lead has no email.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+
+---
+
+## 13. CRM MODULE 2 - CLIENT MASTER & CLIENTCONTACT APIs
+
+### 13.1 `POST /api/clients/create` (or `POST /api/clients`)
+- **Description**: Directly creates a `Client` account and primary `ClientContact` (`OWNER` level) without a prior lead (`sourceLeadId: null`).
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+- **Request Body**:
+  ```json
+  {
+    "name": "Shah Enterprises",
+    "companyName": "Shah Group",
+    "phone": "9876543210",
+    "email": "info@shah.com",
+    "billingAddress": "202 Corporate Park, SG Highway",
+    "siteAddresses": ["Site A, Bopal", "Site B, Satellite"],
+    "primaryContactName": "Anand Shah",
+    "primaryContactEmail": "anand@shah.com",
+    "primaryContactPhone": "9876543210"
+  }
+  ```
+
+### 13.2 `GET /api/clients`
+- **Description**: Retrieves paginated and searchable list of Client accounts with primary contact info, originating Lead link, and active project counts.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+- **Query Params**: `search`, `isActive`, `page`, `limit`.
+
+### 13.3 `GET /api/clients/:id`
+- **Description**: Retrieves Client account details including list of all associated `ClientContacts` (excluding password hashes) and source Lead info.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+
+### 13.4 `PUT /api/clients/:id`
+- **Description**: Updates account-level Client fields (`name`, `companyName`, `phone`, `email`, `billingAddress`, `siteAddresses`).
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+
+### 13.5 `PUT /api/clients/:id/deactivate`
+- **Description**: Soft-deactivates Client account (`isActive: false`). Enforces active project safeguard (blocks if active projects exist unless `force=true`).
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+
+### 13.6 `POST /api/clients/:clientId/contacts/add`
+- **Description**: Adds an additional `ClientContact` to a Client account with a temporary password (`mustChangePassword: true`).
+- **Auth**: Internal Employee (PM/Admin) OR Client Contact with `permissionLevel === 'OWNER'`.
+- **Request Body**: `{ "name": "Vikram Site Engineer", "email": "vikram.site@enterprises.com", "phone": "9876500001", "permissionLevel": "MEMBER" }`.
+
+### 13.7 `GET /api/clients/:clientId/contacts`
+- **Description**: Lists all contacts for a Client account.
+- **Auth**: Internal Employee OR any authenticated ClientContact belonging to that `clientId`.
+
+### 13.8 `PUT /api/clients/:clientId/contacts/:contactId/permission`
+- **Description**: Updates permission level (`OWNER`, `MEMBER`, `VIEW_ONLY`). Enforces minimum 1 active OWNER constraint. Logs audit entry to `ClientContactActionLog`.
+- **Auth**: Internal Employee (PM/Admin) OR Client Contact with `permissionLevel === 'OWNER'`.
+- **Request Body**: `{ "newPermissionLevel": "VIEW_ONLY" }`.
+
+### 13.9 `PUT /api/clients/:clientId/contacts/:contactId/deactivate`
+- **Description**: Soft-deactivates a contact (`isActive: false`). Enforces minimum 1 active OWNER constraint. Logs audit entry to `ClientContactActionLog`.
+- **Auth**: Internal Employee (PM/Admin) OR Client Contact with `permissionLevel === 'OWNER'`.
+
+### 13.10 `POST /api/clients/:clientId/contacts/:contactId/reset-temp-password`
+- **Description**: Admin helper to regenerate and output a new temporary password for a contact.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+
+---
+
+## 14. CRM MODULE 2 - CLIENT PORTAL AUTHENTICATION APIs
+
+### 14.1 `POST /api/client-auth/login`
+- **Description**: Authenticates ClientContact credentials (email + password), verifies active state of contact and parent Client account, generates Client-scoped JWT token, and logs `LOGIN`.
+- **Auth**: Public / Unrestricted.
+- **Request Body**: `{ "email": "shah.owner@enterprises.com", "password": "TempPass@123" }`.
+- **Response** (`200 OK`):
+  ```json
+  {
+    "success": true,
+    "message": "Client Portal login successful.",
+    "token": "eyJhbGciOiJIUzI1NiIsIn...",
+    "contact": { "id": "...", "name": "Anand Shah", "permissionLevel": "OWNER", "mustChangePassword": true }
+  }
+  ```
+
+### 14.2 `POST /api/client-auth/change-password`
+- **Description**: Changes password for logged-in ClientContact, validates password complexity (8-15 chars, uppercase, lowercase, number, special char), updates password, and sets `mustChangePassword: false`.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+- **Request Body**: `{ "currentPassword": "TempPass@123", "newPassword": "NewPass@1234" }`.
+
+### 14.3 `POST /api/client-auth/forgot-password`
+- **Description**: Generates password reset token for a ClientContact email.
+- **Auth**: Public / Unrestricted.
+- **Request Body**: `{ "email": "shah.owner@enterprises.com" }`.
+
+### 14.4 `POST /api/client-auth/reset-password`
+- **Description**: Resets ClientContact password using valid reset token and sets `mustChangePassword: false`.
+- **Auth**: Public / Unrestricted.
+- **Request Body**: `{ "resetToken": "...", "newPassword": "ResetPass@999" }`.
+
+### 14.5 `GET /api/client-auth/me`
+- **Description**: Retrieves current logged-in ClientContact profile and parent Client account info.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+---
+
+## 15. CRM MODULE 3 - CLIENT-PROJECT LINKAGE APIs
+
+### 15.1 `POST /api/client-project-links/create` (or `POST /api/client-project-links`)
+- **Description**: Links an active Project to a Client account. Validates active status of Client, prevents duplicate active links for the same pair, and logs `LINKED` audit history.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+- **Request Body**: `{ "clientId": "64bd9f0296e625a5857e4f10", "projectId": "64bd9f0296e625a5857e4f80", "visibleToClient": true }`.
+
+### 15.2 `GET /api/client-project-links/by-client/:clientId`
+- **Description**: Gets all active project links for a specific Client account.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+
+### 15.3 `GET /api/client-project-links/by-project/:projectId`
+- **Description**: Gets all active client links for a specific Project.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+
+### 15.4 `PUT /api/client-project-links/:id/visibility`
+- **Description**: Toggles `visibleToClient` boolean without unlinking the project. Logs `VISIBILITY_CHANGED` audit history.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`).
+- **Request Body**: `{ "visibleToClient": false }`.
+
+### 15.5 `DELETE /api/client-project-links/:id`
+- **Description**: Soft-deletes (unlinks) a project from a Client account (`isActive: false`, `unlinkedBy`, `unlinkedAt`). Logs `UNLINKED` audit history.
+- **Auth**: Internal Employee (`ADMIN` or `SUPER_ADMIN` ONLY — PM role gets HTTP 403!).
+
+### 15.6 `GET /api/client/projects/my`
+- **Description**: Client Portal discovery endpoint. Returns all active linked projects where `visibleToClient === true` strictly scoped to the calling ClientContact's own `clientId` derived from JWT.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+---
+
+## 16. HEALTH & SYSTEM APIs
+
+### 16.1 `GET /api/health`
+- **Description**: Checks service health status and returns current server timestamp.
+- **Auth**: Public / Unrestricted.
+- **Response** (`200 OK`):
+  ```json
+  {
+    "status": "ok",
+    "service": "Nirman Architects API",
+    "serverTime": "2026-08-04T14:20:00.000Z"
+  }
+  ```
+
+---
+
+## SUMMARY OF ALL 107 API ENDPOINTS BY MODULE
+
+| # | Endpoint Method & Path | Auth Scope | Module |
+| :--- | :--- | :--- | :--- |
+| 1 | `GET /api/health` | Public | System Health |
+| 2 | `POST /api/auth/register` | Public / Admin | Auth & Users |
+| 3 | `POST /api/register` | Public / Admin | Auth & Users |
+| 4 | `POST /api/auth/login` | Public | Auth & Users |
+| 5 | `POST /api/login` | Public | Auth & Users |
+| 6 | `GET /api/roles` | Public | User Roles |
+| 7 | `POST /api/users/create` | Super Admin / HR | User Management |
+| 8 | `GET /api/users` | Super Admin / HR | User Management |
+| 9 | `GET /api/users/:id` | Authenticated | User Management |
+| 10 | `PUT /api/users/:id` | Super Admin / HR | User Management |
+| 11 | `DELETE /api/users/:id` | Super Admin / HR | User Management |
+| 12 | `DELETE /api/user/:id` | Super Admin / HR | User Management |
+| 13 | `PUT /api/users/:id/change-password` | Super Admin / HR | Password Admin |
+| 14 | `PATCH /api/users/:id/change-password` | Super Admin / HR | Password Admin |
+| 15 | `POST /api/users/:id/change-password` | Super Admin / HR | Password Admin |
+| 16 | `PUT /api/users/change-password/:id` | Super Admin / HR | Password Admin |
+| 17 | `GET /api/role-master/all` | Public / Auth | Dynamic Roles |
+| 18 | `POST /api/role-master/create` | Super Admin | Dynamic Roles |
+| 19 | `POST /api/device/register` | Employee | Device Binding |
+| 20 | `POST /api/device/heartbeat` | Employee | Device Binding |
+| 21 | `GET /api/device/status` | Employee | Device Binding |
+| 22 | `GET /api/device/pending` | Super Admin / HR | Device Binding |
+| 23 | `POST /api/device/approve` | Super Admin / HR | Device Binding |
+| 24 | `POST /api/device/assign` | Super Admin / HR | Device Binding |
+| 25 | `POST /api/attendance/clock-in` | Employee | Attendance |
+| 26 | `POST /api/attendance/clock-out` | Employee | Attendance |
+| 27 | `GET /api/attendance/today` | Employee | Attendance |
+| 28 | `POST /api/attendance/event` | Employee | Desktop Agent Event |
+| 29 | `POST /api/attendance/sync` | Employee | Offline Sync |
+| 30 | `POST /api/attendance/heartbeat` | Employee | Event Alias |
+| 31 | `POST /api/attendance/clock` | Employee | Event Alias |
+| 32 | `GET /api/attendance/my` | Employee | Attendance History |
+| 33 | `GET /api/attendance/all` | Super Admin / HR | Attendance Admin |
+| 34 | `POST /api/attendance/correction/request` | Employee | Attendance Correction |
+| 35 | `POST /api/attendance/correction/approve` | Super Admin / HR | Attendance Correction |
+| 36 | `POST /api/attendance/correction/reject` | Super Admin / HR | Attendance Correction |
+| 37 | `GET /api/attendance/config` | Employee | Attendance Config |
+| 38 | `PUT /api/attendance/config` | Super Admin | Attendance Config |
+| 39 | `POST /api/site-locations` | PM / Admin / HR | Site Geo-Fence |
+| 40 | `GET /api/site-locations` | Employee | Site Geo-Fence |
+| 41 | `GET /api/leave-type/active` | Public / Auth | Dynamic Leave Types |
+| 42 | `GET /api/leave-type/all` | Super Admin | Dynamic Leave Types |
+| 43 | `POST /api/leave-type/create` | Super Admin | Dynamic Leave Types |
+| 44 | `PUT /api/leave-type/:id/update` | Super Admin | Dynamic Leave Types |
+| 45 | `PUT /api/leave-type/:id/deactivate` | Super Admin | Dynamic Leave Types |
+| 46 | `POST /api/leave/apply` | Employee | Leave Application |
+| 47 | `GET /api/leave/my` | Employee | Leave History |
+| 48 | `POST /api/leave/cancel` | Employee | Leave Cancellation |
+| 49 | `GET /api/leave/pending` | Super Admin | Leave Approvals |
+| 50 | `POST /api/leave/approve` | Super Admin | Leave Approvals |
+| 51 | `POST /api/leave/reject` | Super Admin | Leave Approvals |
+| 52 | `GET /api/leave/all` | Super Admin / HR | Leave Overview |
+| 53 | `GET /api/leave-balance/my` | Employee | Leave Balance |
+| 54 | `GET /api/leave/balance/my` | Employee | Leave Balance Alias |
+| 55 | `GET /api/leave-balance/:userId` | Super Admin / HR | Leave Balance Admin |
+| 56 | `GET /api/leave/balance/:userId` | Super Admin / HR | Leave Balance Alias |
+| 57 | `POST /api/leave-balance/adjust` | Super Admin / HR | Balance Adjustment |
+| 58 | `POST /api/leave/balance/adjust` | Super Admin / HR | Balance Adjustment Alias |
+| 59 | `GET /api/payroll/my` | Employee | Payroll History |
+| 60 | `GET /api/payroll/my/download` | Employee | Self Payslip PDF |
+| 61 | `GET /api/payroll/all` | Super Admin / HR | Payroll Admin |
+| 62 | `POST /api/payroll/generate` | Super Admin | Bulk Payroll Calc |
+| 63 | `POST /api/payroll/generate/:userId` | Super Admin | Single User Payroll Calc |
+| 64 | `GET /api/payroll/download-all` | Super Admin | Bulk Payslips ZIP |
+| 65 | `GET /api/payroll/download/:userId` | Super Admin | Employee Payslip PDF |
+| 66 | `GET /api/offer-letter/:userId` | Self / Admin | Offer Letter Info |
+| 67 | `GET /api/offer-letter/:userId/download` | Self / Admin | Download Offer Letter |
+| 68 | `POST /api/offer-letter/:userId/regenerate` | Super Admin / HR | Offer Letter Re-gen |
+| 69 | `GET /api/screenshot/config` | Public / Agent | Screenshot Settings |
+| 70 | `POST /api/screenshot/upload` | Agent / Auth | Workstation Screenshot |
+| 71 | `POST /api/screenshot/sync` | Agent / Auth | Offline Screenshots Sync |
+| 72 | `PUT /api/screenshot/config` | Super Admin | Screenshot Config |
+| 73 | `GET /api/screenshot/employee/:userId` | Super Admin | Screenshot Viewer |
+| 74 | `GET /api/screenshot/employee/:userId/download-all` | Super Admin | Screenshot Bulk ZIP |
+| 75 | `POST /api/app-usage/sync` | Agent / Auth | App Usage Metrics Sync |
+| 76 | `GET /api/app-usage/config` | Employee | App Usage Config |
+| 77 | `PUT /api/app-usage/config` | Super Admin | App Usage Config |
+| 78 | `GET /api/app-usage/employee/:userId` | Super Admin | App Usage Report |
+| 79 | `GET /api/app-usage/employee/:userId/export` | Super Admin | App Usage CSV/JSON |
+| 80 | `GET /api/notifications/my` | Employee | User Notifications |
+| 81 | `GET /api/notifications` | Employee | Notifications Alias |
+| 82 | `PUT /api/notifications/:id/read` | Employee | Notification Mark Read |
+| 83 | `POST /api/leads/create` | Internal PM/Admin | CRM 1 - Create Lead |
+| 84 | `POST /api/leads` | Internal PM/Admin | CRM 1 - Create Lead |
+| 85 | `GET /api/leads` | Internal PM/Admin | CRM 1 - List Leads |
+| 86 | `GET /api/leads/followups/due` | Internal PM/Admin | CRM 1 - Follow-ups Due |
+| 87 | `GET /api/leads/:id` | Internal PM/Admin | CRM 1 - Lead Detail |
+| 88 | `PUT /api/leads/:id/update` | Internal PM/Admin | CRM 1 - Update Lead |
+| 89 | `PUT /api/leads/:id` | Internal PM/Admin | CRM 1 - Update Lead |
+| 90 | `PUT /api/leads/:id/update-status` | Internal PM/Admin | CRM 1 - Status Update |
+| 91 | `POST /api/leads/:id/log-interaction` | Internal PM/Admin | CRM 1 - Log Interaction |
+| 92 | `GET /api/leads/:id/interactions` | Internal PM/Admin | CRM 1 - Interactions Timeline |
+| 93 | `GET /api/leads/:id/status-history` | Internal PM/Admin | CRM 1 - Status Audit Trail |
+| 94 | `POST /api/leads/:id/convert-to-client` | Internal PM/Admin | CRM 1 & 2 - Convert Lead |
+| 95 | `POST /api/clients/create` | Internal PM/Admin | CRM 2 - Direct Client |
+| 96 | `POST /api/clients` | Internal PM/Admin | CRM 2 - Direct Client |
+| 97 | `GET /api/clients` | Internal PM/Admin | CRM 2 - Client List |
+| 98 | `GET /api/clients/:id` | Internal PM/Admin | CRM 2 - Client Detail |
+| 99 | `PUT /api/clients/:id` | Internal PM/Admin | CRM 2 - Update Client |
+| 100 | `PUT /api/clients/:id/deactivate` | Internal PM/Admin | CRM 2 - Deactivate Client |
+| 101 | `POST /api/clients/:clientId/contacts/add` | Internal / Client OWNER | CRM 2 - Add Contact |
+| 102 | `GET /api/clients/:clientId/contacts` | Internal / Client Contact | CRM 2 - List Contacts |
+| 103 | `PUT /api/clients/:clientId/contacts/:contactId/permission` | Internal / Client OWNER | CRM 2 - Contact Permission |
+| 104 | `PUT /api/clients/:clientId/contacts/:contactId/deactivate` | Internal / Client OWNER | CRM 2 - Deactivate Contact |
+| 105 | `POST /api/clients/:clientId/contacts/:contactId/reset-temp-password` | Internal PM/Admin | CRM 2 - Temp Password |
+| 106 | `POST /api/client-auth/login` | Public | CRM 2 - Portal Login |
+| 107 | `POST /api/client-auth/change-password` | Client Contact | CRM 2 - Change Password |
+| 108 | `POST /api/client-auth/forgot-password` | Public | CRM 2 - Forgot Password |
+| 109 | `POST /api/client-auth/reset-password` | Public | CRM 2 - Reset Password |
+| 110 | `GET /api/client-auth/me` | Client Contact | CRM 2 - Profile Info |
+| 111 | `POST /api/client-project-links/create` | Internal PM/Admin | CRM 3 - Link Project |
+| 112 | `POST /api/client-project-links` | Internal PM/Admin | CRM 3 - Link Project |
+| 113 | `GET /api/client-project-links/by-client/:clientId` | Internal PM/Admin | CRM 3 - Links by Client |
+| 114 | `GET /api/client-project-links/by-project/:projectId` | Internal PM/Admin | CRM 3 - Links by Project |
+| 115 | `PUT /api/client-project-links/:id/visibility` | Internal PM/Admin | CRM 3 - Toggle Visibility |
+| 116 | `DELETE /api/client-project-links/:id` | Admin / Super Admin ONLY | CRM 3 - Unlink Project |
+| 117 | `GET /api/client/projects/my` | Client Contact | CRM 3 - Portal Projects |
+| 118 | `GET /api/client/dashboard` | Client Contact | CRM 4 - Aggregated Dashboard |
+| 119 | `GET /api/client/projects/:projectId` | Client Contact | CRM 4 - Project Detail (Secured) |
+| 120 | `GET /api/client/projects/:projectId/milestones` | Client Contact | CRM 4 - Project Milestones |
+| 121 | `GET /api/client/projects/:projectId/timeline` | Client Contact | CRM 4 - Formatted Timeline |
+| 122 | `PUT /api/client-auth/profile` | Client Contact | CRM 4 - Profile Update (Name/Phone) |
+| 123 | `POST /api/client/session/log-login` | Client Contact | CRM 4 - Log Portal Session |
+| 124 | `POST /api/client/session/heartbeat` | Client Contact | CRM 4 - Session Heartbeat Ping |
