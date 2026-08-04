@@ -1,0 +1,27 @@
+# Dependency directories
+node_modules/
+nexalliance-attendance-agent/node_modules/
+jspm_packages/
+
+# Build and distribution directories
+dist/
+nexalliance-attendance-agent/dist/
+*.exe
+
+# Storage and logs
+*.log
+storage/*
+!storage/offer_letters/
+!storage/offer_letters/.gitkeep
+!storage/salary/
+!storage/salary/.gitkeep
+!storage/letter/
+!storage/letter/.gitkeep
+!storage/screenshorts
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
