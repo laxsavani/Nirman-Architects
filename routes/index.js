@@ -21,6 +21,7 @@ const clientProjectLinkRoutes = require('./clientProjectLink.routes');
 const clientPortalRoutes = require('./clientPortal.routes');
 const drawingRoutes = require('./drawing.routes');
 const documentRoutes = require('./document.routes');
+const chatRoutes = require('./chat.routes');
 
 // Health Check Endpoint
 router.get('/health', (req, res) => {
@@ -73,6 +74,9 @@ router.use('/drawings', drawingRoutes);
 
 // CRM Module 6 - Internal Document Routes
 router.use('/documents', documentRoutes);
+
+// CRM Module 7 - Internal Chat Routes
+router.use('/chat', chatRoutes);
 
 // Notification & User Routes
 router.use('/notifications', notificationRoutes);

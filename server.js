@@ -23,8 +23,13 @@ const { getStorageRoot } = require('./utils/storagePathResolver');
 const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
 
+const http = require('http');
+const { initSocket } = require('./utils/socket');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
+const server = http.createServer(app);
+initSocket(server);
 
 // Security Middlewares
 app.use(helmet({
@@ -79,9 +84,9 @@ app.use('/api', routes);
 app.use(errorMiddleware);
 
 // Start Server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`====================================================`);
-  console.log(`🚀 Nirman Architects API Server is running!`);
+  console.log(`🚀 Nirman Architects API Server & Socket.io is running!`);
   console.log(`👉 Portal:       http://localhost:${PORT}`);
   console.log(`👉 Swagger UI:   http://localhost:${PORT}/api-docs`);
   console.log(`👉 Storage Root: http://localhost:${PORT}/storage`);

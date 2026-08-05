@@ -735,9 +735,43 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 19. HEALTH & SYSTEM APIs
+## 19. CRM MODULE 7 - CLIENT CHAT SYSTEM APIs
 
-### 19.1 `GET /api/health`
+### 19.1 `GET /api/client/chat/unread-counts`
+- **Description**: Returns unread message count per linked project for the calling ClientContact.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 19.2 `GET /api/client/chat/:projectId?since=`
+- **Description**: Returns chronological chat history for a project (interleaved employee and client contact messages populated with specific contact details like `"Rajesh Patel (OWNER)"`). Supports `since` query parameter for reconnect gap filling. Enforces mandatory project linkage check.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 19.3 `POST /api/client/chat/:projectId/message`
+- **Description**: Client posts a chat message into project thread. Persists message, triggers real-time Socket.io broadcast to `project_<projectId>` room. Restricted to `OWNER` or `MEMBER` permission levels (`VIEW_ONLY` blocked with HTTP 403).
+- **Auth**: Client Contact (`clientAuthMiddleware` - `OWNER` / `MEMBER` only).
+- **Request Body**: `{ "messageText": "Verified pillar layout", "mentionedIds": ["64bd..."], "replyToMessageId": "64bd..." }`
+
+### 19.4 `POST /api/client/chat/:projectId/sync`
+- **Description**: Batch sync endpoint for offline-composed messages. Accepts an array of messages composed while offline, persisting each with `isOfflineSync: true` and preserving `localComposedAt` chronological ordering.
+- **Auth**: Client Contact (`clientAuthMiddleware` - `OWNER` / `MEMBER` only).
+- **Request Body**: `{ "messages": [{ "messageText": "Offline note 1", "localComposedAt": "2026-08-05T10:00:00Z" }] }`
+
+### 19.5 `PUT /api/client/chat/:projectId/mark-read`
+- **Description**: Updates `ClientChatReadStatus.lastReadMessageAt` for calling contact and project, resetting unread count.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 19.6 `GET /api/chat/:projectId`
+- **Description**: Internal team view fetching full unified project chat history.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 19.7 `POST /api/chat/:projectId/message`
+- **Description**: Internal employee posts message into project chat workspace and broadcasts via Socket.io.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+---
+
+## 20. HEALTH & SYSTEM APIs
+
+### 20.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -751,7 +785,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 138 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 145 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -893,3 +927,10 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 136 | `GET /api/client/documents/:documentId/download` | Client Contact | CRM 6 - Download Document (Logs DOWNLOAD) |
 | 137 | `GET /api/documents/:documentId/client-access-log` | PM / Admin / Architect | CRM 6 - Document Access Audit Log |
 | 138 | `GET /api/documents/client-engagement/:clientId` | PM / Admin / Architect | CRM 6 - Client Engagement Summary |
+| 139 | `GET /api/client/chat/unread-counts` | Client Contact | CRM 7 - Unread Chat Message Counts |
+| 140 | `GET /api/client/chat/:projectId` | Client Contact | CRM 7 - Project Chat History Timeline |
+| 141 | `POST /api/client/chat/:projectId/message` | Client OWNER / MEMBER | CRM 7 - Send Chat Message (Socket.io Broadcast) |
+| 142 | `POST /api/client/chat/:projectId/sync` | Client OWNER / MEMBER | CRM 7 - Sync Offline Messages Batch |
+| 143 | `PUT /api/client/chat/:projectId/mark-read` | Client Contact | CRM 7 - Mark Chat Read Timestamp |
+| 144 | `GET /api/chat/:projectId` | Internal Employee | CRM 7 - Internal Project Chat History |
+| 145 | `POST /api/chat/:projectId/message` | Internal Employee | CRM 7 - Internal Team Send Message |

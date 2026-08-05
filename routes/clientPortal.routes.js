@@ -3,6 +3,7 @@ const router = express.Router();
 const clientPortalController = require('../controllers/clientPortal.controller');
 const clientDrawingController = require('../controllers/clientDrawing.controller');
 const clientDocumentController = require('../controllers/clientDocument.controller');
+const clientChatController = require('../controllers/clientChat.controller');
 const clientAuthMiddleware = require('../middlewares/clientAuth.middleware');
 
 /**
@@ -33,6 +34,13 @@ router.get('/drawings/:drawingId/comments', clientDrawingController.getComments)
 router.get('/projects/:projectId/documents', clientDocumentController.getProjectDocuments);
 router.get('/documents/:documentId/preview', clientDocumentController.previewDocument);
 router.get('/documents/:documentId/download', clientDocumentController.downloadDocument);
+
+// Module 7 — Client Chat System Endpoints
+router.get('/chat/unread-counts', clientChatController.getUnreadCounts);
+router.get('/chat/:projectId', clientChatController.getProjectChat);
+router.post('/chat/:projectId/message', clientChatController.sendMessage);
+router.post('/chat/:projectId/sync', clientChatController.syncOfflineMessages);
+router.put('/chat/:projectId/mark-read', clientChatController.markAsRead);
 
 // Profile Update Endpoint (Name & Phone)
 router.put('/profile', clientPortalController.updateProfile);

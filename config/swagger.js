@@ -3121,6 +3121,157 @@ const swaggerDefinition = {
           200: { description: 'Engagement summary retrieved' }
         }
       }
+    },
+    '/client/chat/unread-counts': {
+      get: {
+        tags: ['CRM Module 7 - Client Chat System'],
+        summary: 'Get unread message counts per linked project for calling contact',
+        security: [{ clientBearerAuth: [] }],
+        responses: {
+          200: { description: 'Unread counts retrieved successfully' }
+        }
+      }
+    },
+    '/client/chat/{projectId}': {
+      get: {
+        tags: ['CRM Module 7 - Client Chat System'],
+        summary: 'Get project chat history (interleaved chronological messages)',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'since', in: 'query', schema: { type: 'string', format: 'date-time' } }
+        ],
+        responses: {
+          200: { description: 'Chat history retrieved successfully' },
+          403: { description: 'Access denied' }
+        }
+      }
+    },
+    '/client/chat/{projectId}/message': {
+      post: {
+        tags: ['CRM Module 7 - Client Chat System'],
+        summary: 'Send chat message (OWNER / MEMBER permission required, Socket.io broadcast)',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['messageText'],
+                properties: {
+                  messageText: { type: 'string', example: 'Hello team, verified structural pillar offsets.' },
+                  mentionedIds: { type: 'array', items: { type: 'string' } },
+                  replyToMessageId: { type: 'string' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Message sent successfully' },
+          403: { description: 'Access denied (VIEW_ONLY contact blocked)' }
+        }
+      }
+    },
+    '/client/chat/{projectId}/sync': {
+      post: {
+        tags: ['CRM Module 7 - Client Chat System'],
+        summary: 'Batch sync messages composed while offline',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['messages'],
+                properties: {
+                  messages: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      required: ['messageText'],
+                      properties: {
+                        messageText: { type: 'string' },
+                        localComposedAt: { type: 'string', format: 'date-time' },
+                        replyToMessageId: { type: 'string' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Offline messages synced successfully' },
+          403: { description: 'Access denied' }
+        }
+      }
+    },
+    '/client/chat/{projectId}/mark-read': {
+      put: {
+        tags: ['CRM Module 7 - Client Chat System'],
+        summary: 'Mark project chat as read for calling contact',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Chat marked as read' },
+          403: { description: 'Access denied' }
+        }
+      }
+    },
+    '/chat/{projectId}': {
+      get: {
+        tags: ['CRM Module 7 - Client Chat System (Internal)'],
+        summary: 'Internal team view: Unified project chat history',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'since', in: 'query', schema: { type: 'string', format: 'date-time' } }
+        ],
+        responses: {
+          200: { description: 'Project chat history retrieved' }
+        }
+      }
+    },
+    '/chat/{projectId}/message': {
+      post: {
+        tags: ['CRM Module 7 - Client Chat System (Internal)'],
+        summary: 'Internal team post message into project chat workspace',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['messageText'],
+                properties: {
+                  messageText: { type: 'string', example: 'Site inspection scheduled for tomorrow at 10 AM.' },
+                  mentionedIds: { type: 'array', items: { type: 'string' } },
+                  replyToMessageId: { type: 'string' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Message sent successfully' }
+        }
+      }
     }
   }
 };
