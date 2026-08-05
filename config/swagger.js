@@ -3122,6 +3122,80 @@ const swaggerDefinition = {
         }
       }
     },
+    '/drawings/upload': {
+      post: {
+        tags: ['CRM Module 5 - Internal Drawing Upload (Designer / Architect)'],
+        summary: 'Upload new drawing file (PDF, PNG, JPG, DWG) to Cloudinary & save DB record',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['file', 'projectId', 'title', 'category'],
+                properties: {
+                  file: { type: 'string', format: 'binary', description: 'Drawing File (PDF, PNG, JPG, DWG)' },
+                  projectId: { type: 'string', example: '66b1c2f304918e24ab567890' },
+                  title: { type: 'string', example: 'Ground Floor Working Layout' },
+                  category: { type: 'string', enum: ['Concept', 'Working', 'Process DWG', 'GFC', 'Site', 'Interior'], example: 'Working' },
+                  drawingNumber: { type: 'string', example: 'DWG-001' },
+                  notes: { type: 'string', example: 'Initial architectural working drawing upload' },
+                  visibleToClient: { type: 'boolean', default: true }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Drawing uploaded successfully to Cloudinary' },
+          400: { description: 'Validation error' },
+          500: { description: 'Upload error' }
+        }
+      }
+    },
+    '/drawings/{drawingId}/upload-version': {
+      post: {
+        tags: ['CRM Module 5 - Internal Drawing Upload (Designer / Architect)'],
+        summary: 'Upload new revision version (V2, V3...) of an existing drawing to Cloudinary',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'drawingId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['file'],
+                properties: {
+                  file: { type: 'string', format: 'binary', description: 'Revised Drawing File (PDF, PNG, JPG, DWG)' },
+                  notes: { type: 'string', example: 'Revised column layout per client review' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'New drawing version uploaded successfully' },
+          404: { description: 'Drawing not found' }
+        }
+      }
+    },
+    '/drawings/{drawingId}/client-approval-log': {
+      get: {
+        tags: ['CRM Module 5 - Internal Drawing Upload (Designer / Architect)'],
+        summary: 'Get full client approval history for a drawing',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'drawingId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Client approval log retrieved' }
+        }
+      }
+    },
     '/client/chat/unread-counts': {
       get: {
         tags: ['CRM Module 7 - Client Chat System'],
