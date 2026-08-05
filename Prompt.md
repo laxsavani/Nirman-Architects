@@ -20,7 +20,10 @@ This document provides a comprehensive, production-grade API reference and worki
 13. [CRM Module 2 - Client Master & ClientContact APIs](#13-crm-module-2---client-master--clientcontact-apis)
 14. [CRM Module 2 - Client Portal Authentication APIs](#14-crm-module-2---client-portal-authentication-apis)
 15. [CRM Module 3 - Client-Project Linkage APIs](#15-crm-module-3---client-project-linkage-apis)
-16. [Health & System APIs](#16-health--system-apis)
+16. [CRM Module 4 - Client Portal Core APIs](#16-crm-module-4---client-portal-core-apis)
+17. [CRM Module 5 - Drawing Approval Workflow APIs](#17-crm-module-5---drawing-approval-workflow-apis)
+18. [CRM Module 6 - Client Document Access APIs](#18-crm-module-6---client-document-access-apis)
+19. [Health & System APIs](#19-health--system-apis)
 
 ---
 
@@ -631,9 +634,110 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 16. HEALTH & SYSTEM APIs
+---
 
-### 16.1 `GET /api/health`
+## 16. CRM MODULE 4 - CLIENT PORTAL CORE APIs
+
+### 16.1 `GET /api/client/dashboard`
+- **Description**: Aggregated dashboard endpoint for client portal (Web & Mobile). Returns active projects (with next milestone info), completed past projects, and user permission level.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 16.2 `GET /api/client/projects/:projectId`
+- **Description**: Returns detailed project information (populated with PM and site location) with strict security linkage verification (`ClientProjectLink`).
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 16.3 `GET /api/client/projects/:projectId/milestones`
+- **Description**: Returns project milestone progress for client portal view.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 16.4 `GET /api/client/projects/:projectId/timeline`
+- **Description**: Returns aggregated timeline events (start, milestones, schedule adjustments, estimated completion).
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 16.5 `PUT /api/client-auth/profile`
+- **Description**: Updates profile details (name and phone number) for logged-in ClientContact.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 16.6 `POST /api/client/session/log-login`
+- **Description**: Logs portal session login (platform: `WEB`, `ANDROID`, `IOS`).
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 16.7 `POST /api/client/session/heartbeat`
+- **Description**: Session heartbeat ping updating `lastActiveAt` timestamp.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+---
+
+## 17. CRM MODULE 5 - DRAWING APPROVAL WORKFLOW APIs
+
+### 17.1 `GET /api/client/projects/:projectId/drawings`
+- **Description**: Returns all project drawings visible to client (`visibleToClient: true`), grouped into `pendingApproval`, `approved`, and `changesRequested`. Enforces mandatory project linkage security check.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 17.2 `GET /api/client/drawings/:drawingId`
+- **Description**: Returns full drawing detail and version history for a specific drawing.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 17.3 `GET /api/client/drawings/:drawingId/versions`
+- **Description**: Returns version history list for a drawing, allowing independent viewing/downloading of historical revisions.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 17.4 `GET /api/client/drawings/:drawingId/compare`
+- **Description**: Side-by-side version comparison data endpoint. Query params `versionA` and `versionB`.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 17.5 `POST /api/client/drawings/:drawingId/approve`
+- **Description**: Client approves a drawing in `PENDING_CLIENT_APPROVAL` state. Updates status to `APPROVED`, creates audit entry in `ClientApprovalLog`, and notifies internal team. Restricted to `OWNER` or `MEMBER` permission levels (`VIEW_ONLY` blocked with HTTP 403). Handles double-approval race conditions (HTTP 409).
+- **Auth**: Client Contact (`clientAuthMiddleware` - `OWNER` / `MEMBER` only).
+- **Request Body**: `{ "comments": "Looks great, please proceed." }`
+
+### 17.6 `POST /api/client/drawings/:drawingId/request-changes`
+- **Description**: Client requests changes on a drawing. Updates status to `CHANGES_REQUESTED`, creates audit entry in `ClientApprovalLog`, and notifies Designer & PM. Mandatory non-empty `comments` required. Restricted to `OWNER` or `MEMBER` permission levels. Approved drawings are locked.
+- **Auth**: Client Contact (`clientAuthMiddleware` - `OWNER` / `MEMBER` only).
+- **Request Body**: `{ "comments": "Please adjust pillar C3 axis by 150mm towards west wall." }`
+
+### 17.7 `POST /api/client/drawings/:drawingId/comments`
+- **Description**: Posts a comment or image-pinned annotation (`annotationCoords`) on a drawing. Supports private draft notes (`isDraft: true`) or shared comments (`isDraft: false`).
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+- **Request Body**: `{ "commentText": "Verify beam joinery clearance", "annotationCoords": { "x": 100, "y": 250 }, "isDraft": false }`
+
+### 17.8 `GET /api/client/drawings/:drawingId/comments`
+- **Description**: Retrieves all shared comments for a drawing PLUS the calling contact's own draft notes (hides other contacts' drafts).
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 17.9 `GET /api/drawings/:drawingId/client-approval-log`
+- **Description**: Internal team view of full client approval audit trail for a drawing (who approved/rejected, when, comments).
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`, `ARCHITECT`).
+
+---
+
+## 18. CRM MODULE 6 - CLIENT DOCUMENT ACCESS APIs
+
+### 18.1 `GET /api/client/projects/:projectId/documents`
+- **Description**: Returns all client-visible documents (`visibleToClient: true`, default opt-in) for a project, grouped by folder/category (`Contracts`, `Approved Drawings PDFs`, `Photos`, `Invoices`, `Other Shared Documents`). Supports query parameters `folder` and `search`.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 18.2 `GET /api/client/documents/:documentId/preview`
+- **Description**: Serves preview data/stream for inline PDF/image rendering. Performs dual security cascade check (verifies BOTH `Document.visibleToClient === true` AND parent project link is active/visible). Logs `VIEW` action to `ClientDocumentAccessLog`.
+- **Auth**: Client Contact (`clientAuthMiddleware` - All permission levels: OWNER, MEMBER, VIEW_ONLY).
+
+### 18.3 `GET /api/client/documents/:documentId/download`
+- **Description**: Streams file for download. Performs dual security cascade check. Gracefully handles soft-deleted files (`isDeleted: true`) returning HTTP 410. Logs `DOWNLOAD` action to `ClientDocumentAccessLog`.
+- **Auth**: Client Contact (`clientAuthMiddleware` - All permission levels: OWNER, MEMBER, VIEW_ONLY).
+
+### 18.4 `GET /api/documents/:documentId/client-access-log`
+- **Description**: Internal PM/Admin view listing all client contacts who have viewed or downloaded a specific document with timestamps.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`, `ARCHITECT`).
+
+### 18.5 `GET /api/documents/client-engagement/:clientId`
+- **Description**: Internal PM/Admin engagement summary for a client: counts total shared documents, total engaged documents (viewed/downloaded), and lists un-opened shared documents for follow-up prioritization.
+- **Auth**: Internal Employee (`PROJECT_MANAGER`, `ADMIN`, `SUPER_ADMIN`, `HR`, `ARCHITECT`).
+
+---
+
+## 19. HEALTH & SYSTEM APIs
+
+### 19.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -647,7 +751,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 107 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 138 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -775,3 +879,17 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 122 | `PUT /api/client-auth/profile` | Client Contact | CRM 4 - Profile Update (Name/Phone) |
 | 123 | `POST /api/client/session/log-login` | Client Contact | CRM 4 - Log Portal Session |
 | 124 | `POST /api/client/session/heartbeat` | Client Contact | CRM 4 - Session Heartbeat Ping |
+| 125 | `GET /api/client/projects/:projectId/drawings` | Client Contact | CRM 5 - Grouped Drawings List |
+| 126 | `GET /api/client/drawings/:drawingId` | Client Contact | CRM 5 - Drawing Detail & Versions |
+| 127 | `GET /api/client/drawings/:drawingId/versions` | Client Contact | CRM 5 - Drawing Version History |
+| 128 | `GET /api/client/drawings/:drawingId/compare` | Client Contact | CRM 5 - Side-by-Side Version Compare |
+| 129 | `POST /api/client/drawings/:drawingId/approve` | Client OWNER / MEMBER | CRM 5 - Approve Drawing |
+| 130 | `POST /api/client/drawings/:drawingId/request-changes` | Client OWNER / MEMBER | CRM 5 - Request Changes (Comments Req) |
+| 131 | `POST /api/client/drawings/:drawingId/comments` | Client Contact | CRM 5 - Post Drawing Annotation/Comment |
+| 132 | `GET /api/client/drawings/:drawingId/comments` | Client Contact | CRM 5 - List Comments & Draft Notes |
+| 133 | `GET /api/drawings/:drawingId/client-approval-log` | PM / Admin / Architect | CRM 5 - Client Approval Audit Log |
+| 134 | `GET /api/client/projects/:projectId/documents` | Client Contact | CRM 6 - Grouped Documents List |
+| 135 | `GET /api/client/documents/:documentId/preview` | Client Contact | CRM 6 - Preview Document (Logs VIEW) |
+| 136 | `GET /api/client/documents/:documentId/download` | Client Contact | CRM 6 - Download Document (Logs DOWNLOAD) |
+| 137 | `GET /api/documents/:documentId/client-access-log` | PM / Admin / Architect | CRM 6 - Document Access Audit Log |
+| 138 | `GET /api/documents/client-engagement/:clientId` | PM / Admin / Architect | CRM 6 - Client Engagement Summary |

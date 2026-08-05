@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const clientPortalController = require('../controllers/clientPortal.controller');
 const clientDrawingController = require('../controllers/clientDrawing.controller');
+const clientDocumentController = require('../controllers/clientDocument.controller');
 const clientAuthMiddleware = require('../middlewares/clientAuth.middleware');
 
 /**
@@ -27,6 +28,11 @@ router.post('/drawings/:drawingId/approve', clientDrawingController.approveDrawi
 router.post('/drawings/:drawingId/request-changes', clientDrawingController.requestChanges);
 router.post('/drawings/:drawingId/comments', clientDrawingController.addComment);
 router.get('/drawings/:drawingId/comments', clientDrawingController.getComments);
+
+// Module 6 — Client Document Access Endpoints
+router.get('/projects/:projectId/documents', clientDocumentController.getProjectDocuments);
+router.get('/documents/:documentId/preview', clientDocumentController.previewDocument);
+router.get('/documents/:documentId/download', clientDocumentController.downloadDocument);
 
 // Profile Update Endpoint (Name & Phone)
 router.put('/profile', clientPortalController.updateProfile);

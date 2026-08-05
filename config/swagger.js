@@ -2880,6 +2880,247 @@ const swaggerDefinition = {
           200: { description: 'Heartbeat timestamp updated successfully' }
         }
       }
+    },
+    '/client/projects/{projectId}/drawings': {
+      get: {
+        tags: ['CRM Module 5 - Drawing Approval Workflow'],
+        summary: 'List project drawings for client portal (Grouped by pendingApproval, approved, changesRequested)',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Drawings retrieved successfully' },
+          403: { description: 'Access denied - project not linked or visible' }
+        }
+      }
+    },
+    '/client/drawings/{drawingId}': {
+      get: {
+        tags: ['CRM Module 5 - Drawing Approval Workflow'],
+        summary: 'Get drawing details and version history',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'drawingId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Drawing details retrieved successfully' },
+          403: { description: 'Access denied' },
+          404: { description: 'Drawing not found' }
+        }
+      }
+    },
+    '/client/drawings/{drawingId}/versions': {
+      get: {
+        tags: ['CRM Module 5 - Drawing Approval Workflow'],
+        summary: 'Get all versions of a drawing',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'drawingId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Drawing versions retrieved' },
+          403: { description: 'Access denied' }
+        }
+      }
+    },
+    '/client/drawings/{drawingId}/compare': {
+      get: {
+        tags: ['CRM Module 5 - Drawing Approval Workflow'],
+        summary: 'Compare two drawing versions side-by-side',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'drawingId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'versionA', in: 'query', schema: { type: 'integer', example: 1 } },
+          { name: 'versionB', in: 'query', schema: { type: 'integer', example: 2 } }
+        ],
+        responses: {
+          200: { description: 'Version comparison payload retrieved' }
+        }
+      }
+    },
+    '/client/drawings/{drawingId}/approve': {
+      post: {
+        tags: ['CRM Module 5 - Drawing Approval Workflow'],
+        summary: 'Client approves drawing (OWNER / MEMBER permission required)',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'drawingId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  comments: { type: 'string', example: 'Looks great, approved for construction' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Drawing approved successfully' },
+          403: { description: 'Access denied (VIEW_ONLY contact blocked)' },
+          409: { description: 'Conflict - Already approved by another contact' }
+        }
+      }
+    },
+    '/client/drawings/{drawingId}/request-changes': {
+      post: {
+        tags: ['CRM Module 5 - Drawing Approval Workflow'],
+        summary: 'Client requests changes on drawing (OWNER / MEMBER permission required, mandatory comments)',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'drawingId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['comments'],
+                properties: {
+                  comments: { type: 'string', example: 'Please adjust column C3 axis by 150mm towards west wall.' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Changes requested successfully' },
+          400: { description: 'Bad Request - missing comments or approved drawing locked' },
+          403: { description: 'Access denied (VIEW_ONLY contact blocked)' }
+        }
+      }
+    },
+    '/client/drawings/{drawingId}/comments': {
+      post: {
+        tags: ['CRM Module 5 - Drawing Approval Workflow'],
+        summary: 'Post drawing annotation or comment (Draft or Shared)',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'drawingId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['commentText'],
+                properties: {
+                  commentText: { type: 'string', example: 'Verify beam joinery clearance' },
+                  annotationCoords: { type: 'object', example: { x: 100, y: 250, width: 40, height: 40 } },
+                  isDraft: { type: 'boolean', example: false }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Comment created successfully' }
+        }
+      },
+      get: {
+        tags: ['CRM Module 5 - Drawing Approval Workflow'],
+        summary: 'Get drawing comments (Shared comments + calling contact own draft notes)',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'drawingId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Comments retrieved successfully' }
+        }
+      }
+    },
+    '/drawings/{drawingId}/client-approval-log': {
+      get: {
+        tags: ['CRM Module 5 - Drawing Approval Workflow (Internal)'],
+        summary: 'Internal team view: Full client approval audit trail for a drawing',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'drawingId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Client approval log retrieved' }
+        }
+      }
+    },
+    '/client/projects/{projectId}/documents': {
+      get: {
+        tags: ['CRM Module 6 - Client Document Access'],
+        summary: 'List project documents (visibleToClient: true) grouped by category/folder',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'folder', in: 'query', schema: { type: 'string', example: 'Contracts' } },
+          { name: 'search', in: 'query', schema: { type: 'string', example: 'Agreement' } }
+        ],
+        responses: {
+          200: { description: 'Documents retrieved successfully' },
+          403: { description: 'Access denied' }
+        }
+      }
+    },
+    '/client/documents/{documentId}/preview': {
+      get: {
+        tags: ['CRM Module 6 - Client Document Access'],
+        summary: 'Preview document with dual-cascade security check & VIEW log',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'documentId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Preview data retrieved' },
+          403: { description: 'Access denied' },
+          404: { description: 'Document not found' }
+        }
+      }
+    },
+    '/client/documents/{documentId}/download': {
+      get: {
+        tags: ['CRM Module 6 - Client Document Access'],
+        summary: 'Download document with dual-cascade security check & DOWNLOAD log',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'documentId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Document download stream ready' },
+          403: { description: 'Access denied' },
+          410: { description: 'Document no longer available (soft-deleted)' }
+        }
+      }
+    },
+    '/documents/{documentId}/client-access-log': {
+      get: {
+        tags: ['CRM Module 6 - Client Document Access (Internal)'],
+        summary: 'Internal team view: Document view and download access logs',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'documentId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Document access log retrieved' }
+        }
+      }
+    },
+    '/documents/client-engagement/{clientId}': {
+      get: {
+        tags: ['CRM Module 6 - Client Document Access (Internal)'],
+        summary: 'Internal team view: Client document engagement summary (Engaged vs Unopened shared documents)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'clientId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'projectId', in: 'query', schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Engagement summary retrieved' }
+        }
+      }
     }
   }
 };
