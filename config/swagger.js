@@ -3722,6 +3722,185 @@ const swaggerDefinition = {
           200: { description: 'Aggregate summary computed' }
         }
       }
+    },
+
+    /* ============================================================
+       CRM MODULE 10 — CLIENT NOTIFICATIONS (FINAL CRM MODULE)
+       ============================================================ */
+    '/client/notifications/my': {
+      get: {
+        tags: ['CRM Module 10 - Client Notifications (Portal)'],
+        summary: 'Get paginated notifications for calling contact',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'isRead', in: 'query', schema: { type: 'boolean' } },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } }
+        ],
+        responses: {
+          200: { description: 'Notifications list retrieved' }
+        }
+      }
+    },
+    '/client/notifications/unread-count': {
+      get: {
+        tags: ['CRM Module 10 - Client Notifications (Portal)'],
+        summary: 'Get unread notification count for bell icon badge',
+        security: [{ clientBearerAuth: [] }],
+        responses: {
+          200: { description: 'Unread count retrieved' }
+        }
+      }
+    },
+    '/client/notifications/{id}/read': {
+      put: {
+        tags: ['CRM Module 10 - Client Notifications (Portal)'],
+        summary: 'Mark single notification as read',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: { description: 'Notification marked read' }
+        }
+      }
+    },
+    '/client/notifications/mark-all-read': {
+      put: {
+        tags: ['CRM Module 10 - Client Notifications (Portal)'],
+        summary: 'Bulk mark all notifications as read',
+        security: [{ clientBearerAuth: [] }],
+        responses: {
+          200: { description: 'All notifications marked read' }
+        }
+      }
+    },
+    '/client/notifications/preferences': {
+      get: {
+        tags: ['CRM Module 10 - Client Notifications (Portal)'],
+        summary: 'Get notification delivery preferences',
+        security: [{ clientBearerAuth: [] }],
+        responses: {
+          200: { description: 'Preferences retrieved' }
+        }
+      },
+      put: {
+        tags: ['CRM Module 10 - Client Notifications (Portal)'],
+        summary: 'Update notification delivery preferences',
+        security: [{ clientBearerAuth: [] }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  pushEnabled: { type: 'boolean', example: true },
+                  emailEnabled: { type: 'boolean', example: true },
+                  whatsappEnabled: { type: 'boolean', example: false }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Preferences updated successfully' }
+        }
+      }
+    },
+    '/client/notifications/register-device': {
+      post: {
+        tags: ['CRM Module 10 - Client Notifications (Portal)'],
+        summary: 'Register push device token for mobile client',
+        security: [{ clientBearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['platform', 'deviceToken'],
+                properties: {
+                  platform: { type: 'string', enum: ['ANDROID', 'IOS'], example: 'ANDROID' },
+                  deviceToken: { type: 'string', example: 'fcm_token_123456' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Device token registered' }
+        }
+      }
+    },
+    '/client/notifications/unregister-device': {
+      delete: {
+        tags: ['CRM Module 10 - Client Notifications (Portal)'],
+        summary: 'Unregister device token on logout',
+        security: [{ clientBearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['deviceToken'],
+                properties: {
+                  deviceToken: { type: 'string', example: 'fcm_token_123456' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Device token unregistered' }
+        }
+      }
+    },
+    '/notifications/{notificationId}/delivery-log': {
+      get: {
+        tags: ['CRM Module 10 - Client Notifications (Internal)'],
+        summary: 'Internal team: Audit delivery log for notification',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'notificationId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: { description: 'Delivery audit logs retrieved' }
+        }
+      }
+    },
+    '/notifications/whatsapp-config': {
+      post: {
+        tags: ['CRM Module 10 - Client Notifications (Internal)'],
+        summary: 'Super Admin: Configure WhatsApp Business API credentials',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['apiKey'],
+                properties: {
+                  apiKey: { type: 'string', example: 'WA_API_KEY_SECRET' },
+                  businessAccountId: { type: 'string', example: 'WA_BUS_ACC_123' },
+                  phoneNumberId: { type: 'string', example: 'WA_PHONE_ID_456' },
+                  isActive: { type: 'boolean', example: true }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'WhatsApp configured' }
+        }
+      }
+    },
+    '/notifications/whatsapp-config/status': {
+      get: {
+        tags: ['CRM Module 10 - Client Notifications (Internal)'],
+        summary: 'Get WhatsApp integration configuration status',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'WhatsApp status retrieved' }
+        }
+      }
     }
   }
 };

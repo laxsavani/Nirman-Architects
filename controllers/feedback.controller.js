@@ -3,6 +3,7 @@ const FeedbackPromptStatus = require('../models/FeedbackPromptStatus');
 const FeedbackCategory = require('../models/FeedbackCategory');
 const ClientProjectLink = require('../models/ClientProjectLink');
 const ClientContact = require('../models/ClientContact');
+const NotificationDispatcher = require('../utils/notificationDispatcher');
 const { sendSuccess, sendError } = require('../utils/response');
 
 /**
@@ -26,7 +27,7 @@ exports.onProjectStatusChangedToCompleted = async (projectId) => {
       });
 
       for (const contact of contacts) {
-        await FeedbackPromptStatus.findOneAndUpdate(
+        const promptDoc = await FeedbackPromptStatus.findOneAndUpdate(
           {
             contactId: contact._id,
             triggerType: 'PROJECT_COMPLETION',
@@ -44,6 +45,18 @@ exports.onProjectStatusChangedToCompleted = async (projectId) => {
           { upsert: true, new: true }
         );
         createdCount++;
+
+        // CRM Module 10 Hookpoint: Dispatch feedback prompt notification
+        NotificationDispatcher.dispatch({
+          contactIds: [contact._id],
+          type: 'FEEDBACK_PROMPT_AVAILABLE',
+          title: 'Project Completed - Share Your Feedback',
+          message: 'Your project has been completed! We would love to hear your feedback.',
+          deepLink: `client/feedback/pending-prompts`,
+          refId: promptDoc._id,
+          projectId,
+          clientId: link.clientId
+        }).catch(err => console.warn('[Notification Error] Feedback prompt notification failed:', err.message));
       }
     }
 

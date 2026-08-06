@@ -2,6 +2,7 @@ const ClientTicket = require('../models/ClientTicket');
 const ClientTicketResponse = require('../models/ClientTicketResponse');
 const ClientTicketAssignmentLog = require('../models/ClientTicketAssignmentLog');
 const User = require('../models/User');
+const NotificationDispatcher = require('../utils/notificationDispatcher');
 const { sendSuccess, sendError } = require('../utils/response');
 const { emitToProjectRoom } = require('../utils/socket');
 
@@ -103,6 +104,18 @@ exports.respondToTicket = async (req, res) => {
 
     emitToProjectRoom(ticket.projectId.toString(), 'ticket_response_added', { ticketId: id, response: rObj });
 
+    // CRM Module 10 Hookpoint: Notify client contact of new staff response
+    await NotificationDispatcher.dispatch({
+      contactIds: [ticket.raisedBy],
+      type: 'TICKET_NEW_RESPONSE',
+      title: 'New Response on Support Ticket',
+      message: `Staff member ${rObj.formattedAuthorName} added a response to your ticket "${ticket.subject}".`,
+      deepLink: `client/tickets/${ticket._id}`,
+      refId: ticket._id,
+      projectId: ticket.projectId,
+      clientId: ticket.clientId
+    }).catch(err => console.warn('[Notification Error] Ticket response notification failed:', err.message));
+
     return sendSuccess(res, 201, 'Staff response added successfully.', { response: rObj, ticketStatus: ticket.status });
   } catch (error) {
     console.error('Error adding staff response to ticket:', error);
@@ -147,6 +160,18 @@ exports.updateTicketStatus = async (req, res) => {
       .populate('projectId', 'name projectNumber');
 
     emitToProjectRoom(ticket.projectId.toString(), 'ticket_status_changed', { ticketId: id, status: targetStatus, ticket: updatedTicket });
+
+    // CRM Module 10 Hookpoint: Notify client contact of status update
+    await NotificationDispatcher.dispatch({
+      contactIds: [ticket.raisedBy],
+      type: 'TICKET_STATUS_CHANGED',
+      title: 'Ticket Status Updated',
+      message: `Your ticket "${ticket.subject}" has been marked as ${targetStatus}.`,
+      deepLink: `client/tickets/${ticket._id}`,
+      refId: ticket._id,
+      projectId: ticket.projectId,
+      clientId: ticket.clientId
+    }).catch(err => console.warn('[Notification Error] Ticket status notification failed:', err.message));
 
     return sendSuccess(res, 200, `Ticket status updated to ${targetStatus} successfully.`, { ticket: updatedTicket });
   } catch (error) {

@@ -862,9 +862,53 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 22. HEALTH & SYSTEM APIs
+## 22. CRM MODULE 10 - CLIENT NOTIFICATIONS APIs
 
-### 22.1 `GET /api/health`
+### 22.1 `GET /api/client/notifications/my`
+- **Description**: Retrieves paginated notifications list for calling ClientContact with optional `isRead` filter.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 22.2 `GET /api/client/notifications/unread-count`
+- **Description**: Returns unread notification count for rendering bell icon badge.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 22.3 `PUT /api/client/notifications/:id/read`
+- **Description**: Marks a single notification as read.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 22.4 `PUT /api/client/notifications/mark-all-read`
+- **Description**: Bulk marks all notifications as read for calling contact.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 22.5 `GET /api/client/notifications/preferences`
+- **Description**: Retrieves calling contact's channel delivery preferences (`pushEnabled`, `emailEnabled`, `whatsappEnabled`).
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 22.6 `PUT /api/client/notifications/preferences`
+- **Description**: Updates contact's notification channel delivery preferences.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 22.7 `POST /api/client/notifications/register-device`
+- **Description**: Registers mobile push notification device token (`ANDROID` / `IOS`).
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 22.8 `DELETE /api/client/notifications/unregister-device`
+- **Description**: Deactivates push device token on logout.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 22.9 `GET /api/notifications/:notificationId/delivery-log`
+- **Description**: Internal audit view listing exact channel delivery attempts and statuses for a notification ID.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin / HR / Architect).
+
+### 22.10 `POST /api/notifications/whatsapp-config` & `GET /api/notifications/whatsapp-config/status`
+- **Description**: Super Admin configures WhatsApp Business API credentials & checks configuration status.
+- **Auth**: Internal Employee (`authMiddleware` - Super Admin / Admin).
+
+---
+
+## 23. HEALTH & SYSTEM APIs
+
+### 23.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -878,7 +922,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 165 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 175 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -1047,3 +1091,13 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 163 | `GET /api/client/feedback/project/:projectId` | Client Contact | CRM 9 - Shared Project Feedback |
 | 164 | `GET /api/feedback/all` | PM / Admin / Super Admin | CRM 9 - Internal List Feedback |
 | 165 | `GET /api/feedback/aggregate-summary` | PM / Admin / Super Admin | CRM 9 - Satisfaction Analytics Summary |
+| 166 | `GET /api/client/notifications/my` | Client Contact | CRM 10 - Client Notifications List |
+| 167 | `GET /api/client/notifications/unread-count` | Client Contact | CRM 10 - Unread Notification Badge Count |
+| 168 | `PUT /api/client/notifications/:id/read` | Client Contact | CRM 10 - Mark Single Notification Read |
+| 169 | `PUT /api/client/notifications/mark-all-read` | Client Contact | CRM 10 - Bulk Mark All Notifications Read |
+| 170 | `GET /api/client/notifications/preferences` | Client Contact | CRM 10 - Notification Channel Preferences |
+| 171 | `PUT /api/client/notifications/preferences` | Client Contact | CRM 10 - Update Channel Preferences |
+| 172 | `POST /api/client/notifications/register-device` | Client Contact | CRM 10 - Register Push Device Token |
+| 173 | `DELETE /api/client/notifications/unregister-device` | Client Contact | CRM 10 - Unregister Push Device Token |
+| 174 | `GET /api/notifications/:notificationId/delivery-log` | PM / Admin / Architect | CRM 10 - Internal Delivery Audit Log |
+| 175 | `POST /api/notifications/whatsapp-config` | Super Admin | CRM 10 - WhatsApp Business API Config |

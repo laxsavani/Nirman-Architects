@@ -93,6 +93,11 @@ router.use('/feedback-category', feedbackCategoryRoutes);
 router.use('/client/feedback', clientFeedbackRoutes);
 router.use('/feedback', feedbackRoutes);
 
+const clientNotificationRoutes = require('./clientNotification.routes');
+
+// CRM Module 10 - Client Notifications Routes
+router.use('/client/notifications', clientNotificationRoutes);
+
 // Notification & User Routes
 router.use('/notifications', notificationRoutes);
 router.use('/', userRoutes);
