@@ -80,10 +80,18 @@ router.use('/chat', chatRoutes);
 
 const clientTicketRoutes = require('./clientTicket.routes');
 const ticketRoutes = require('./ticket.routes');
+const feedbackCategoryRoutes = require('./feedbackCategory.routes');
+const clientFeedbackRoutes = require('./clientFeedback.routes');
+const feedbackRoutes = require('./feedback.routes');
 
 // CRM Module 8 - Client Ticketing (Query/Support) Routes
 router.use('/client/tickets', clientTicketRoutes);
 router.use('/tickets', ticketRoutes);
+
+// CRM Module 9 - Client Feedback & Satisfaction Routes
+router.use('/feedback-category', feedbackCategoryRoutes);
+router.use('/client/feedback', clientFeedbackRoutes);
+router.use('/feedback', feedbackRoutes);
 
 // Notification & User Routes
 router.use('/notifications', notificationRoutes);

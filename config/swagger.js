@@ -3346,6 +3346,382 @@ const swaggerDefinition = {
           201: { description: 'Message sent successfully' }
         }
       }
+    },
+    /* ============================================================
+       CRM MODULE 8 — CLIENT TICKETING (QUERY / SUPPORT)
+       ============================================================ */
+    '/client/tickets/create': {
+      post: {
+        tags: ['CRM Module 8 - Client Ticketing (Portal)'],
+        summary: 'Raise a new support ticket (OWNER/MEMBER only)',
+        security: [{ clientBearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['projectId', 'subject', 'description'],
+                properties: {
+                  projectId: { type: 'string', example: '64bd9f0296e625a5857e4e10' },
+                  subject: { type: 'string', example: 'Drawing dimension discrepancy' },
+                  description: { type: 'string', example: 'Column grid 3 dimensions on page 2 do not match site measurements.' },
+                  priority: { type: 'string', enum: ['Low', 'Medium', 'High'], example: 'High' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Ticket created successfully' },
+          403: { description: 'Access denied or VIEW_ONLY contact blocked' }
+        }
+      }
+    },
+    '/client/tickets/my': {
+      get: {
+        tags: ['CRM Module 8 - Client Ticketing (Portal)'],
+        summary: 'List all tickets for client account (Shared visibility across contacts)',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'CANCELLED'] } },
+          { name: 'projectId', in: 'query', schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Client tickets retrieved' }
+        }
+      }
+    },
+    '/client/tickets/{id}': {
+      get: {
+        tags: ['CRM Module 8 - Client Ticketing (Portal)'],
+        summary: 'Get ticket detail with threaded response history',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: { description: 'Ticket detail and thread retrieved' },
+          403: { description: 'Access denied cross-client boundary' }
+        }
+      }
+    },
+    '/client/tickets/{id}/respond': {
+      post: {
+        tags: ['CRM Module 8 - Client Ticketing (Portal)'],
+        summary: 'Add client response to ticket thread (OWNER/MEMBER only)',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['message'],
+                properties: {
+                  message: { type: 'string', example: 'Attaching photo of column layout.' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Response added to ticket thread' }
+        }
+      }
+    },
+    '/client/tickets/{id}/reopen': {
+      post: {
+        tags: ['CRM Module 8 - Client Ticketing (Portal)'],
+        summary: 'Reopen CLOSED ticket within 14-day grace period',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  reason: { type: 'string', example: 'Issue re-appeared after site inspection.' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Ticket reopened' },
+          400: { description: 'Grace period expired or invalid status' }
+        }
+      }
+    },
+    '/client/tickets/{id}/cancel': {
+      post: {
+        tags: ['CRM Module 8 - Client Ticketing (Portal)'],
+        summary: 'Cancel OPEN or IN_PROGRESS ticket',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: { description: 'Ticket cancelled' }
+        }
+      }
+    },
+    '/tickets/all': {
+      get: {
+        tags: ['CRM Module 8 - Client Ticketing (Internal)'],
+        summary: 'Internal team: List all client tickets across projects',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'status', in: 'query', schema: { type: 'string' } },
+          { name: 'priority', in: 'query', schema: { type: 'string' } },
+          { name: 'assignedTo', in: 'query', schema: { type: 'string' } },
+          { name: 'projectId', in: 'query', schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'All tickets retrieved' }
+        }
+      }
+    },
+    '/tickets/{id}/respond': {
+      post: {
+        tags: ['CRM Module 8 - Client Ticketing (Internal)'],
+        summary: 'Internal staff response to client ticket',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['message'],
+                properties: {
+                  message: { type: 'string', example: 'Our design team has updated drawing Rev-3 to resolve the issue.' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Staff response added' }
+        }
+      }
+    },
+    '/tickets/{id}/status': {
+      put: {
+        tags: ['CRM Module 8 - Client Ticketing (Internal)'],
+        summary: 'Update ticket lifecycle status (IN_PROGRESS, RESOLVED, CLOSED)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['newStatus'],
+                properties: {
+                  newStatus: { type: 'string', enum: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'CANCELLED'] }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Ticket status updated' }
+        }
+      }
+    },
+    '/tickets/{id}/reassign': {
+      put: {
+        tags: ['CRM Module 8 - Client Ticketing (Internal)'],
+        summary: 'Reassign ticket to another employee with audit logging',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['newAssignedTo'],
+                properties: {
+                  newAssignedTo: { type: 'string', example: '64bd9f0296e625a5857e4e10' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Ticket reassigned successfully' }
+        }
+      }
+    },
+
+    /* ============================================================
+       CRM MODULE 9 — CLIENT FEEDBACK & SATISFACTION
+       ============================================================ */
+    '/feedback-category/active': {
+      get: {
+        tags: ['CRM Module 9 - Client Feedback (Master)'],
+        summary: 'Get active feedback categories for rendering forms',
+        responses: {
+          200: { description: 'Active feedback categories retrieved' }
+        }
+      }
+    },
+    '/feedback-category/create': {
+      post: {
+        tags: ['CRM Module 9 - Client Feedback (Master)'],
+        summary: 'Admin: Create new feedback rating category',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                  name: { type: 'string', example: 'Value for Money' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Category created' }
+        }
+      }
+    },
+    '/feedback-category/{id}/deactivate': {
+      put: {
+        tags: ['CRM Module 9 - Client Feedback (Master)'],
+        summary: 'Admin: Toggle feedback category active status',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  isActive: { type: 'boolean', example: false }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Category state updated' }
+        }
+      }
+    },
+    '/client/feedback/pending-prompts': {
+      get: {
+        tags: ['CRM Module 9 - Client Feedback (Portal)'],
+        summary: 'Get pending feedback prompts for calling contact',
+        security: [{ clientBearerAuth: [] }],
+        responses: {
+          200: { description: 'Pending prompts list retrieved' }
+        }
+      }
+    },
+    '/client/feedback/{promptId}/submit': {
+      post: {
+        tags: ['CRM Module 9 - Client Feedback (Portal)'],
+        summary: 'Submit feedback for a prompt (OWNER, MEMBER, VIEW_ONLY permitted)',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [{ name: 'promptId', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['overallRating'],
+                properties: {
+                  overallRating: { type: 'number', minimum: 1, maximum: 5, example: 5 },
+                  categoryRatings: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        categoryId: { type: 'string' },
+                        rating: { type: 'number', minimum: 1, maximum: 5 }
+                      }
+                    }
+                  },
+                  comments: { type: 'string', example: 'Excellent architectural design and timely execution.' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Feedback submitted successfully' }
+        }
+      }
+    },
+    '/client/feedback/{promptId}/skip': {
+      post: {
+        tags: ['CRM Module 9 - Client Feedback (Portal)'],
+        summary: 'Skip pending feedback prompt permanently for event',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [{ name: 'promptId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: { description: 'Prompt skipped' }
+        }
+      }
+    },
+    '/client/feedback/my': {
+      get: {
+        tags: ['CRM Module 9 - Client Feedback (Portal)'],
+        summary: 'Get calling contact personal feedback history',
+        security: [{ clientBearerAuth: [] }],
+        responses: {
+          200: { description: 'Personal feedback history retrieved' }
+        }
+      }
+    },
+    '/client/feedback/project/{projectId}': {
+      get: {
+        tags: ['CRM Module 9 - Client Feedback (Portal)'],
+        summary: 'Get all feedback submitted for project under client account',
+        security: [{ clientBearerAuth: [] }],
+        parameters: [{ name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: { description: 'Project client feedback retrieved' }
+        }
+      }
+    },
+    '/feedback/all': {
+      get: {
+        tags: ['CRM Module 9 - Client Feedback (Internal)'],
+        summary: 'Internal team: List all feedback submissions with filters',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'query', schema: { type: 'string' } },
+          { name: 'clientId', in: 'query', schema: { type: 'string' } },
+          { name: 'minRating', in: 'query', schema: { type: 'number' } },
+          { name: 'maxRating', in: 'query', schema: { type: 'number' } }
+        ],
+        responses: {
+          200: { description: 'All feedback submissions retrieved' }
+        }
+      }
+    },
+    '/feedback/aggregate-summary': {
+      get: {
+        tags: ['CRM Module 9 - Client Feedback (Internal)'],
+        summary: 'Internal team: Compute satisfaction metrics & category averages',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'query', schema: { type: 'string' } },
+          { name: 'clientId', in: 'query', schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Aggregate summary computed' }
+        }
+      }
     }
   }
 };

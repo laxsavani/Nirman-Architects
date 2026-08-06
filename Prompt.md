@@ -1,6 +1,6 @@
 # NIRMAN ARCHITECTS - COMPLETE PROJECT API MASTER DIRECTORY & WORKING SPECIFICATION
 
-This document provides a comprehensive, production-grade API reference and working specification for **every single API endpoint** in the **Nirman Architects** codebase (covering HRM, Core Identity, Attendance, Leave, Payroll, Offer Letters, Device Binding, Screenshots, App Usage, Notifications, and CRM Modules 1, 2, and 3).
+This document provides a comprehensive, production-grade API reference and working specification for **every single API endpoint** in the **Nirman Architects** codebase (covering HRM, Core Identity, Attendance, Leave, Payroll, Offer Letters, Device Binding, Screenshots, App Usage, Notifications, and CRM Modules 1 through 9).
 
 ---
 
@@ -23,7 +23,11 @@ This document provides a comprehensive, production-grade API reference and worki
 16. [CRM Module 4 - Client Portal Core APIs](#16-crm-module-4---client-portal-core-apis)
 17. [CRM Module 5 - Drawing Approval Workflow APIs](#17-crm-module-5---drawing-approval-workflow-apis)
 18. [CRM Module 6 - Client Document Access APIs](#18-crm-module-6---client-document-access-apis)
-19. [Health & System APIs](#19-health--system-apis)
+19. [CRM Module 7 - Client Chat System APIs](#19-crm-module-7---client-chat-system-apis)
+20. [CRM Module 8 - Client Ticketing (Query/Support) APIs](#20-crm-module-8---client-ticketing-querysupport-apis)
+21. [CRM Module 9 - Client Feedback & Satisfaction APIs](#21-crm-module-9---client-feedback--satisfaction-apis)
+22. [Health & System APIs](#22-health--system-apis)
+23. [Summary Table of All 165 API Endpoints](#summary-of-all-165-api-endpoints-by-module)
 
 ---
 
@@ -769,9 +773,98 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 20. HEALTH & SYSTEM APIs
+## 20. CRM MODULE 8 - CLIENT TICKETING (QUERY/SUPPORT) APIs
 
-### 20.1 `GET /api/health`
+### 20.1 `POST /api/client/tickets/create`
+- **Description**: Raises a new client support ticket. Auto-assigns responsible user to the project's PM (`projectManager`). Enforces linkage check. `OWNER` / `MEMBER` allowed; `VIEW_ONLY` blocked with HTTP 403. Supports file attachments.
+- **Auth**: Client Contact (`clientAuthMiddleware` - `OWNER` / `MEMBER` only).
+- **Request Body**: `{ "projectId": "64bd...", "subject": "Drawing discrepancy", "description": "Column dimensions on page 2 need review.", "priority": "High" }`
+
+### 20.2 `GET /api/client/tickets/my`
+- **Description**: Lists all support tickets belonging to the client organization (shared visibility across all contacts of the client). Supports `status` and `projectId` filters.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 20.3 `GET /api/client/tickets/:id`
+- **Description**: Returns full ticket detail along with complete chronological response thread (formatted with role names). Enforces cross-client security boundary.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 20.4 `POST /api/client/tickets/:id/respond`
+- **Description**: Adds a client response to a ticket thread (`OWNER` / `MEMBER` only). Supports file attachments.
+- **Auth**: Client Contact (`clientAuthMiddleware` - `OWNER` / `MEMBER` only).
+
+### 20.5 `POST /api/client/tickets/:id/reopen`
+- **Description**: Reopens a `CLOSED` ticket within a 14-day server-validated grace period. Resets status to `OPEN`, increments `reopenedCount`, and notifies assigned PM.
+- **Auth**: Client Contact (`clientAuthMiddleware` - `OWNER` / `MEMBER` only).
+
+### 20.6 `POST /api/client/tickets/:id/cancel`
+- **Description**: Cancels an `OPEN` or `IN_PROGRESS` ticket.
+- **Auth**: Client Contact (`clientAuthMiddleware` - `OWNER` / `MEMBER` only).
+
+### 20.7 `GET /api/tickets/all`
+- **Description**: Internal team view listing all client tickets across projects with status, priority, assignedTo, and project filters.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin / HR / Architect).
+
+### 20.8 `POST /api/tickets/:id/respond`
+- **Description**: Internal staff member responds to client ticket thread. Auto-transitions status from `OPEN` to `IN_PROGRESS` on first reply.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin / HR / Architect).
+
+### 20.9 `PUT /api/tickets/:id/status`
+- **Description**: Updates ticket status (`IN_PROGRESS`, `RESOLVED`, `CLOSED`, etc.). Sets `resolvedAt` and `closedAt` timestamps.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin / HR / Architect).
+
+### 20.10 `PUT /api/tickets/:id/reassign`
+- **Description**: Reassigns ticket to another internal employee and creates an audit record in `ClientTicketAssignmentLog`.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin / HR / Architect).
+
+---
+
+## 21. CRM MODULE 9 - CLIENT FEEDBACK & SATISFACTION APIs
+
+### 21.1 `GET /api/feedback-category/active`
+- **Description**: Retrieves active feedback rating categories for rendering client portal feedback forms.
+- **Auth**: Public / Client / Employee.
+
+### 21.2 `POST /api/feedback-category/create`
+- **Description**: Creates a new dynamic feedback rating category (e.g., "Value for Money", "Communication").
+- **Auth**: Internal Employee (`authMiddleware` - Super Admin / Admin).
+
+### 21.3 `PUT /api/feedback-category/:id/deactivate`
+- **Description**: Toggles active state of a feedback category.
+- **Auth**: Internal Employee (`authMiddleware` - Super Admin / Admin).
+
+### 21.4 `GET /api/client/feedback/pending-prompts`
+- **Description**: Retrieves all `PENDING` feedback prompts for the calling client contact.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 21.5 `POST /api/client/feedback/:promptId/submit`
+- **Description**: Submits client satisfaction feedback (1-5 stars overall rating, category ratings, comments). Updates prompt status to `SUBMITTED`. Explicit Exception: Allowed for ALL permission levels (`OWNER`, `MEMBER`, and `VIEW_ONLY`).
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 21.6 `POST /api/client/feedback/:promptId/skip`
+- **Description**: Permanently skips a pending feedback prompt for a trigger event. Updates prompt status to `SKIPPED`.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 21.7 `GET /api/client/feedback/my`
+- **Description**: Retrieves calling contact's personal submitted feedback history.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 21.8 `GET /api/client/feedback/project/:projectId`
+- **Description**: Retrieves all feedback submitted for a project by any contact under the client account.
+- **Auth**: Client Contact (`clientAuthMiddleware`).
+
+### 21.9 `GET /api/feedback/all`
+- **Description**: Internal team view listing all submitted client feedback with rating range, project, client, and date filters.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin / HR / Architect).
+
+### 21.10 `GET /api/feedback/aggregate-summary`
+- **Description**: Computes company-wide or project-specific satisfaction metrics (average overall rating, star rating distribution, category rating averages).
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin / HR / Architect).
+
+---
+
+## 22. HEALTH & SYSTEM APIs
+
+### 22.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -785,7 +878,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 145 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 165 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -934,3 +1027,23 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 143 | `PUT /api/client/chat/:projectId/mark-read` | Client Contact | CRM 7 - Mark Chat Read Timestamp |
 | 144 | `GET /api/chat/:projectId` | Internal Employee | CRM 7 - Internal Project Chat History |
 | 145 | `POST /api/chat/:projectId/message` | Internal Employee | CRM 7 - Internal Team Send Message |
+| 146 | `POST /api/client/tickets/create` | Client OWNER / MEMBER | CRM 8 - Raise Support Ticket |
+| 147 | `GET /api/client/tickets/my` | Client Contact | CRM 8 - List Client Tickets |
+| 148 | `GET /api/client/tickets/:id` | Client Contact | CRM 8 - Ticket Detail & Response Thread |
+| 149 | `POST /api/client/tickets/:id/respond` | Client OWNER / MEMBER | CRM 8 - Add Client Response |
+| 150 | `POST /api/client/tickets/:id/reopen` | Client OWNER / MEMBER | CRM 8 - Reopen Closed Ticket (14-day grace) |
+| 151 | `POST /api/client/tickets/:id/cancel` | Client OWNER / MEMBER | CRM 8 - Cancel Ticket |
+| 152 | `GET /api/tickets/all` | PM / Admin / Architect | CRM 8 - Internal Team Tickets List |
+| 153 | `POST /api/tickets/:id/respond` | PM / Admin / Architect | CRM 8 - Internal Staff Response |
+| 154 | `PUT /api/tickets/:id/status` | PM / Admin / Architect | CRM 8 - Update Ticket Status |
+| 155 | `PUT /api/tickets/:id/reassign` | PM / Admin / Architect | CRM 8 - Reassign Ticket Employee |
+| 156 | `GET /api/feedback-category/active` | Public / Client / Staff | CRM 9 - Active Feedback Categories |
+| 157 | `POST /api/feedback-category/create` | Super Admin / Admin | CRM 9 - Create Category Master |
+| 158 | `PUT /api/feedback-category/:id/deactivate` | Super Admin / Admin | CRM 9 - Deactivate Category |
+| 159 | `GET /api/client/feedback/pending-prompts` | Client Contact | CRM 9 - Pending Feedback Prompts |
+| 160 | `POST /api/client/feedback/:promptId/submit` | Client Contact (All Roles) | CRM 9 - Submit Feedback |
+| 161 | `POST /api/client/feedback/:promptId/skip` | Client Contact | CRM 9 - Skip Feedback Prompt |
+| 162 | `GET /api/client/feedback/my` | Client Contact | CRM 9 - Personal Feedback History |
+| 163 | `GET /api/client/feedback/project/:projectId` | Client Contact | CRM 9 - Shared Project Feedback |
+| 164 | `GET /api/feedback/all` | PM / Admin / Super Admin | CRM 9 - Internal List Feedback |
+| 165 | `GET /api/feedback/aggregate-summary` | PM / Admin / Super Admin | CRM 9 - Satisfaction Analytics Summary |
