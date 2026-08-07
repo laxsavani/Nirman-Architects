@@ -98,6 +98,15 @@ const clientNotificationRoutes = require('./clientNotification.routes');
 // CRM Module 10 - Client Notifications Routes
 router.use('/client/notifications', clientNotificationRoutes);
 
+const projectRoutes = require('./project.routes');
+const projectCategoryRoutes = require('./projectCategory.routes');
+const departmentRoutes = require('./department.routes');
+
+// ERP Module 1 - Project Management Routes
+router.use('/projects', projectRoutes);
+router.use('/project-category', projectCategoryRoutes);
+router.use('/department', departmentRoutes);
+
 // Notification & User Routes
 router.use('/notifications', notificationRoutes);
 router.use('/', userRoutes);

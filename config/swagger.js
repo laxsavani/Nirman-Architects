@@ -3901,6 +3901,329 @@ const swaggerDefinition = {
           200: { description: 'WhatsApp status retrieved' }
         }
       }
+    },
+    '/projects/create': {
+      post: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Create a new project (PM, Admin, Super Admin)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['projectName'],
+                properties: {
+                  projectName: { type: 'string', example: 'Horizon Residency Villa' },
+                  clientInformation: { type: 'string', example: 'Patel Family' },
+                  address: { type: 'string', example: 'Plot 42, Green Park, Ahmedabad' },
+                  budget: { type: 'number', example: 7500000 },
+                  priority: { type: 'string', enum: ['Low', 'Medium', 'High'], example: 'High' },
+                  projectCategoryId: { type: 'string' },
+                  startDate: { type: 'string', format: 'date-time' },
+                  estimatedCompletion: { type: 'string', format: 'date-time' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Project created successfully' }
+        }
+      }
+    },
+    '/projects': {
+      get: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Get list of projects (Paginated, Filterable, Role-Scoped)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'status', in: 'query', schema: { type: 'string' } },
+          { name: 'priority', in: 'query', schema: { type: 'string' } },
+          { name: 'categoryId', in: 'query', schema: { type: 'string' } },
+          { name: 'search', in: 'query', schema: { type: 'string' } },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } }
+        ],
+        responses: {
+          200: { description: 'Projects list retrieved successfully' }
+        }
+      }
+    },
+    '/projects/{id}': {
+      get: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Get project detail by ID',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Project details retrieved' },
+          403: { description: 'Access denied - not assigned to project' },
+          404: { description: 'Project not found' }
+        }
+      },
+      put: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Update project general details (PM, Admin, Super Admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  projectName: { type: 'string' },
+                  clientInformation: { type: 'string' },
+                  address: { type: 'string' },
+                  budget: { type: 'number' },
+                  priority: { type: 'string', enum: ['Low', 'Medium', 'High'] },
+                  projectCategoryId: { type: 'string' },
+                  startDate: { type: 'string', format: 'date-time' },
+                  estimatedCompletion: { type: 'string', format: 'date-time' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Project updated successfully' }
+        }
+      }
+    },
+    '/projects/{id}/update-status': {
+      put: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Update project status and record audit log',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['newStatus'],
+                properties: {
+                  newStatus: { type: 'string', enum: ['New', 'Planning', 'In Progress', 'On Hold', 'Approval Pending', 'Site Work', 'Completed', 'Archived'] },
+                  notes: { type: 'string', example: 'Transitioning to Site Work stage' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Project status updated successfully' }
+        }
+      }
+    },
+    '/projects/{id}/status-history': {
+      get: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Get project status change history log',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Status history retrieved' }
+        }
+      }
+    },
+    '/projects/{id}/milestones/add': {
+      post: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Add milestone to project',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name', 'targetDate'],
+                properties: {
+                  name: { type: 'string', example: 'Foundation Inspection' },
+                  targetDate: { type: 'string', format: 'date-time' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Milestone added successfully' }
+        }
+      }
+    },
+    '/projects/{id}/milestones/{milestoneId}/complete': {
+      put: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Complete a milestone (triggers auto-progress calculation)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'milestoneId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Milestone marked complete' }
+        }
+      }
+    },
+    '/projects/{id}/progress': {
+      put: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'PM manual progress override',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['progressPercentage'],
+                properties: {
+                  progressPercentage: { type: 'number', example: 75 },
+                  isManualOverride: { type: 'boolean', default: true }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Progress updated' }
+        }
+      }
+    },
+    '/projects/{id}/team/assign': {
+      post: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Assign employee to project team',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['userId', 'projectRole'],
+                properties: {
+                  userId: { type: 'string' },
+                  projectRole: { type: 'string', example: 'Lead Architectural Designer' },
+                  departmentId: { type: 'string' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Team member assigned successfully' }
+        }
+      }
+    },
+    '/projects/{id}/responsibility-matrix/add': {
+      post: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Add responsibility matrix entry (RACI)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['area'],
+                properties: {
+                  area: { type: 'string', example: 'Structural Design & Layout' },
+                  responsible: { type: 'string' },
+                  accountable: { type: 'string' },
+                  consulted: { type: 'array', items: { type: 'string' } },
+                  informed: { type: 'array', items: { type: 'string' } }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Responsibility matrix entry added' }
+        }
+      }
+    },
+    '/projects/{id}/progress-breakdown': {
+      get: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Get progress breakdown (Overall + placeholder module breakdowns)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Progress breakdown retrieved' }
+        }
+      }
+    },
+    '/project-category/create': {
+      post: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Create dynamic project category (Admin / Super Admin)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                  name: { type: 'string', example: 'Residential Bungalow' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Category created' }
+        }
+      }
+    },
+    '/project-category/active': {
+      get: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Get active project categories list',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Active project categories list' }
+        }
+      }
+    },
+    '/department/active': {
+      get: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Get active internal departments list',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Active departments list' }
+        }
+      }
     }
   }
 };

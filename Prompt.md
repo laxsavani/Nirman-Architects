@@ -906,9 +906,73 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 23. HEALTH & SYSTEM APIs
+## 23. ERP MODULE 1 - PROJECT MANAGEMENT APIs
 
-### 23.1 `GET /api/health`
+### 23.1 `POST /api/projects/create`
+- **Description**: Creates a new project in initial status `New`. Captures `projectName`, `clientInformation` text reference label, `address`, `budget`, `priority`, `projectCategoryId`, `startDate`, and `estimatedCompletion`.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin).
+
+### 23.2 `GET /api/projects`
+- **Description**: Paginated, filterable projects list (`status`, `priority`, `categoryId`, `search`). Enforces role-scoped visibility: Architects/Designers/Employees see ONLY projects they are assigned to on the team; Admins/PMs see all.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 23.3 `GET /api/projects/:id`
+- **Description**: Full project detail including populated team members, milestones, and RACI responsibility matrix.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 23.4 `PUT /api/projects/:id`
+- **Description**: General project fields update (projectName, address, budget, priority, category, timeline dates). Automatically recalculates `isDelayed` flag.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin).
+
+### 23.5 `PUT /api/projects/:id/update-status`
+- **Description**: Updates project status (`New`, `Planning`, `In Progress`, `On Hold`, `Approval Pending`, `Site Work`, `Completed`, `Archived`). Creates an audit record in `ProjectStatusHistory`.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin).
+
+### 23.6 `GET /api/projects/:id/status-history`
+- **Description**: Retrieves full audit log of project status transitions.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 23.7 `POST /api/projects/:id/milestones/add`
+- **Description**: Adds a named milestone checkpoint with target date to project timeline.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin).
+
+### 23.8 `PUT /api/projects/:id/milestones/:milestoneId/complete`
+- **Description**: Completes a milestone (`isCompleted: true`, `completedDate: now`). Triggers auto-recalculation of `progressPercentage` if not manually overridden.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin / Architect / Designer).
+
+### 23.9 `PUT /api/projects/:id/progress`
+- **Description**: Allows PM to manually override project progress percentage (`progressIsManualOverride: true`).
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin).
+
+### 23.10 `POST /api/projects/:id/team/assign`
+- **Description**: Assigns an HRM employee to the project team with custom projectRole (e.g. "Lead Designer") and departmentId.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin).
+
+### 23.11 `DELETE /api/projects/:id/team/:userId/remove`
+- **Description**: Removes an employee from project active team while preserving past task/drawing historical attribution.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin).
+
+### 23.12 `POST /api/projects/:id/responsibility-matrix/add`
+- **Description**: Adds an area entry to RACI responsibility matrix mapping Responsible, Accountable, Consulted, and Informed team members.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin).
+
+### 23.13 `GET /api/projects/:id/progress-breakdown`
+- **Description**: Returns overall project progress percentage along with placeholder breakdown objects ready for upcoming Task and Drawing modules.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 23.14 `POST /api/project-category/create` & `GET /api/project-category/active`
+- **Description**: Dynamic master endpoints to create and list project categories (e.g. "Residential Villa", "Commercial Complex").
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 23.15 `POST /api/department/create` & `GET /api/department/active`
+- **Description**: Dynamic master endpoints to create and list internal company departments.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+---
+
+## 24. HEALTH & SYSTEM APIs
+
+### 24.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -922,7 +986,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 175 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 198 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -1101,3 +1165,26 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 173 | `DELETE /api/client/notifications/unregister-device` | Client Contact | CRM 10 - Unregister Push Device Token |
 | 174 | `GET /api/notifications/:notificationId/delivery-log` | PM / Admin / Architect | CRM 10 - Internal Delivery Audit Log |
 | 175 | `POST /api/notifications/whatsapp-config` | Super Admin | CRM 10 - WhatsApp Business API Config |
+| 176 | `POST /api/projects/create` | PM / Admin / Super Admin | ERP 1 - Create Project |
+| 177 | `GET /api/projects` | Employee / Auth | ERP 1 - Paginated Role-Scoped Projects List |
+| 178 | `GET /api/projects/:id` | Employee / Auth | ERP 1 - Project Detail & RACI Matrix |
+| 179 | `PUT /api/projects/:id` | PM / Admin / Super Admin | ERP 1 - Update Project General Details |
+| 180 | `PUT /api/projects/:id/update-status` | PM / Admin / Super Admin | ERP 1 - Update Status & Audit Log |
+| 181 | `GET /api/projects/:id/status-history` | Employee / Auth | ERP 1 - Project Status Transition History |
+| 182 | `POST /api/projects/:id/milestones/add` | PM / Admin / Super Admin | ERP 1 - Add Project Milestone |
+| 183 | `PUT /api/projects/:id/milestones/:milestoneId/complete` | PM / Admin / Arch / Des | ERP 1 - Complete Milestone (Auto-Progress) |
+| 184 | `PUT /api/projects/:id/milestones/:milestoneId` | PM / Admin / Super Admin | ERP 1 - Update Milestone Details |
+| 185 | `DELETE /api/projects/:id/milestones/:milestoneId` | PM / Admin / Super Admin | ERP 1 - Delete Milestone |
+| 186 | `PUT /api/projects/:id/progress` | PM / Admin / Super Admin | ERP 1 - PM Manual Progress Override |
+| 187 | `POST /api/projects/:id/team/assign` | PM / Admin / Super Admin | ERP 1 - Assign Team Member & Role |
+| 188 | `DELETE /api/projects/:id/team/:userId/remove` | PM / Admin / Super Admin | ERP 1 - Remove Team Member |
+| 189 | `PUT /api/projects/:id/team/:userId/role` | PM / Admin / Super Admin | ERP 1 - Update Team Member Project Role |
+| 190 | `GET /api/projects/:id/team` | Employee / Auth | ERP 1 - List Project Team Members |
+| 191 | `POST /api/projects/:id/responsibility-matrix/add` | PM / Admin / Super Admin | ERP 1 - Add RACI Matrix Entry |
+| 192 | `GET /api/projects/:id/responsibility-matrix` | Employee / Auth | ERP 1 - Get RACI Responsibility Matrix |
+| 193 | `GET /api/projects/:id/progress-breakdown` | Employee / Auth | ERP 1 - Progress Breakdown Placeholder |
+| 194 | `POST /api/project-category/create` | Super Admin / Admin | ERP 1 - Create Category Master |
+| 195 | `GET /api/project-category/active` | Employee / Auth | ERP 1 - Active Project Categories List |
+| 196 | `PUT /api/project-category/:id/deactivate` | Super Admin / Admin | ERP 1 - Deactivate Category Master |
+| 197 | `POST /api/department/create` | Super Admin / Admin | ERP 1 - Create Department Master |
+| 198 | `GET /api/department/active` | Employee / Auth | ERP 1 - Active Departments List |
