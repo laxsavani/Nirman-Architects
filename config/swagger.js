@@ -4224,6 +4224,339 @@ const swaggerDefinition = {
           200: { description: 'Active departments list' }
         }
       }
+    },
+    '/tasks/create': {
+      post: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Create a new task (PM, Admin, Super Admin)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['projectId', 'taskName', 'assignedEmployee'],
+                properties: {
+                  projectId: { type: 'string', example: '66b1c2f304918e24ab567890' },
+                  taskName: { type: 'string', example: 'Foundation Structural Load Analysis' },
+                  description: { type: 'string', example: 'Perform load bearing analysis for columns C1-C8' },
+                  priority: { type: 'string', enum: ['Low', 'Medium', 'High'], example: 'High' },
+                  departmentId: { type: 'string' },
+                  assignedEmployee: { type: 'string', example: '66b1c2f304918e24ab567899' },
+                  estimatedTime: { type: 'number', example: 12 },
+                  deadline: { type: 'string', format: 'date-time' },
+                  dependsOn: { type: 'array', items: { type: 'string' } }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Task created successfully' }
+        }
+      }
+    },
+    '/tasks': {
+      get: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Get list of tasks (Paginated, Filterable, Role-Scoped)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'query', schema: { type: 'string' } },
+          { name: 'status', in: 'query', schema: { type: 'string' } },
+          { name: 'assignedEmployee', in: 'query', schema: { type: 'string' } },
+          { name: 'priority', in: 'query', schema: { type: 'string' } },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } }
+        ],
+        responses: {
+          200: { description: 'Tasks list retrieved successfully' }
+        }
+      }
+    },
+    '/tasks/{id}': {
+      get: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Get task detail by ID',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Task detail retrieved' },
+          404: { description: 'Task not found' }
+        }
+      },
+      put: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Update task general details (PM, Admin, Super Admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  taskName: { type: 'string' },
+                  description: { type: 'string' },
+                  priority: { type: 'string', enum: ['Low', 'Medium', 'High'] },
+                  departmentId: { type: 'string' },
+                  estimatedTime: { type: 'number' },
+                  deadline: { type: 'string', format: 'date-time' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Task updated successfully' }
+        }
+      }
+    },
+    '/tasks/{id}/accept': {
+      put: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Assigned employee accepts task (Pending -> Accepted)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Task accepted successfully' }
+        }
+      }
+    },
+    '/tasks/{id}/reject': {
+      put: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Assigned employee rejects task (Pending -> Rejected)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  reason: { type: 'string', example: 'Conflict with ongoing structural review' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Task rejected successfully' }
+        }
+      }
+    },
+    '/tasks/{id}/start': {
+      put: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Start task work (stamps actualStartTime, hard-blocked by incomplete dependencies)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Task started successfully' },
+          400: { description: 'Blocked: Dependent task not completed' }
+        }
+      }
+    },
+    '/tasks/{id}/submit-for-review': {
+      put: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Submit task for review (In Progress -> Review)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Task submitted for review' }
+        }
+      }
+    },
+    '/tasks/{id}/approve': {
+      put: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Reviewer approves task (Review -> Approved)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Task approved by reviewer' }
+        }
+      }
+    },
+    '/tasks/{id}/complete': {
+      put: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Complete task (stamps completionTime, calculates totalWorkingTime, queries HRM App-Usage for idle/productivity)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Task completed successfully with HRM time analysis metrics' }
+        }
+      }
+    },
+    '/tasks/{id}/status-history': {
+      get: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Get task workflow status transition audit history',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Status history log retrieved' }
+        }
+      }
+    },
+    '/tasks/{id}/reassign': {
+      put: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Reassign task to another employee (PM, Admin, Super Admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['newAssignedEmployee'],
+                properties: {
+                  newAssignedEmployee: { type: 'string', example: '66b1c2f304918e24ab567888' },
+                  reason: { type: 'string', example: 'Workload rebalancing' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Task reassigned successfully' }
+        }
+      }
+    },
+    '/tasks/{id}/checklist/add': {
+      post: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Add checklist sub-item to task',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['text'],
+                properties: {
+                  text: { type: 'string', example: 'Survey data reviewed' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Checklist item added' }
+        }
+      }
+    },
+    '/tasks/{id}/comments/add': {
+      post: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Post discussion comment on task',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['commentText'],
+                properties: {
+                  commentText: { type: 'string', example: 'Column C4 calculation verified against revised setbacks.' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Comment added' }
+        }
+      }
+    },
+    '/tasks/{id}/comments': {
+      get: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Get task discussion comments',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Comments list retrieved' }
+        }
+      }
+    },
+    '/tasks/{id}/time-analysis': {
+      get: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Get task time analysis (Live/Final HRM App-Usage Correlation)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Time analysis metrics retrieved' }
+        }
+      }
+    },
+    '/tasks/overdue': {
+      get: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Get list of overdue tasks',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'query', schema: { type: 'string' } },
+          { name: 'assignedEmployee', in: 'query', schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Overdue tasks list retrieved' }
+        }
+      }
+    },
+    '/projects/{projectId}/tasks/breakdown': {
+      get: {
+        tags: ['ERP Module 2 - Task Management System'],
+        summary: 'Get project tasks breakdown statistics',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Project tasks breakdown retrieved' }
+        }
+      }
     }
   }
 };

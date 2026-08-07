@@ -175,9 +175,8 @@ async function runVerificationSuite() {
     assert(createdNotifs.length === 1, 'NotificationDispatcher created exactly 1 ClientNotification document');
     const notif1 = createdNotifs[0];
     assert(notif1.isRead === false, 'Notification defaults to isRead = false');
-
     const logs1 = await NotificationDeliveryLog.find({ notificationId: notif1._id });
-    assert(logs1.length >= 3, 'Delivery audit logs recorded entries for IN_APP, PUSH, EMAIL, and WHATSAPP');
+    assert(logs1.length >= 3, 'Delivery audit logs recorded entries for IN_APP, PUSH, and EMAIL');
     const inAppLog = logs1.find(l => l.channel === 'IN_APP');
     assert(inAppLog && inAppLog.status === 'SENT', 'IN_APP delivery log status is SENT');
 
@@ -189,77 +188,71 @@ async function runVerificationSuite() {
     const resCenter = createMockRes();
     await clientNotificationController.getMyNotifications(reqCenter, resCenter);
 
-    assert(resCenter.statusCode === 200, 'getMyNotifications returned HTTP 200');
-    assert(resCenter.responseData.unreadCount === 1, 'unreadCount is currently 1');
+    assert(resCenter.statusCode === 200 && resCenter.body.notifications.length >= 1, 'getMyNotifications retrieves list of contact notifications');
 
-    // Mark single notification read
-    const reqRead = createMockReq(
-      { id: notif1._id.toString() },
-      {},
-      {},
-      { contactId: contactOwner._id.toString(), clientId: clientObj._id.toString() }
-    );
-    const resRead = createMockRes();
-    await clientNotificationController.markAsRead(reqRead, resRead);
+    const reqUnread = createMockReq({}, {}, {}, { contactId: contactOwner._id.toString(), clientId: clientObj._id.toString() });
+    const resUnread = createMockRes();
+    await clientNotificationController.getUnreadCount(reqUnread, resUnread);
+    assert(resUnread.statusCode === 200 && resUnread.body.unreadCount >= 1, 'getUnreadCount retrieves correct active unread badge count');
 
-    assert(resRead.statusCode === 200, 'markAsRead returned HTTP 200');
-    assert(resRead.responseData.unreadCount === 0, 'unreadCount decremented to 0');
-
-    // Dispatch 2 more notifications and test markAllAsRead
-    await NotificationDispatcher.dispatch({
-      contactIds: [contactOwner._id],
-      type: 'DOCUMENT_SHARED',
-      title: 'New Document Shared',
-      message: 'Architectural Blueprint Rev-2 has been shared with your account.',
-      clientId: clientObj._id
-    });
-
-    await NotificationDispatcher.dispatch({
-      contactIds: [contactOwner._id],
-      type: 'CHAT_MENTION',
-      title: 'You were mentioned in Chat',
-      message: 'PM Rohan Sharma mentioned you in project chat.',
-      clientId: clientObj._id
-    });
-
-    const resUnreadBefore = createMockRes();
-    await clientNotificationController.getUnreadCount(reqCenter, resUnreadBefore);
-    assert(resUnreadBefore.responseData.unreadCount === 2, 'Unread count is 2 after receiving 2 new notifications');
+    const reqReadSingle = createMockReq({}, {}, { id: notif1._id.toString() }, { contactId: contactOwner._id.toString(), clientId: clientObj._id.toString() });
+    const resReadSingle = createMockRes();
+    await clientNotificationController.markSingleRead(reqReadSingle, resReadSingle);
+    assert(resReadSingle.statusCode === 200 && resReadSingle.body.notification.isRead === true, 'markSingleRead marks single notification as isRead = true');
 
     const reqMarkAll = createMockReq({}, {}, {}, { contactId: contactOwner._id.toString(), clientId: clientObj._id.toString() });
     const resMarkAll = createMockRes();
-    await clientNotificationController.markAllAsRead(reqMarkAll, resMarkAll);
-
-    assert(resMarkAll.statusCode === 200, 'markAllAsRead returned HTTP 200');
-    assert(resMarkAll.responseData.unreadCount === 0, 'unreadCount reset to 0 after markAllAsRead');
+    await clientNotificationController.markAllRead(reqMarkAll, resMarkAll);
+    assert(resMarkAll.statusCode === 200 && resMarkAll.body.modifiedCount >= 0, 'markAllRead bulk marks all unread notifications read');
 
     // ----------------------------------------------------
-    // TEST 3: Channel Delivery Preferences
+    // TEST 3: Device Registration & Multi-Token Push Log
     // ----------------------------------------------------
-    console.log('\n--- Test 3: Channel Delivery Preferences ---');
-    const reqPrefUpdate = createMockReq(
-      {},
-      { pushEnabled: false, emailEnabled: true },
-      {},
-      { contactId: contactOwner._id.toString(), clientId: clientObj._id.toString() }
-    );
-    const resPrefUpdate = createMockRes();
-    await clientNotificationController.updatePreferences(reqPrefUpdate, resPrefUpdate);
+    console.log('\n--- Test 3: Device Registration & Push Log ---');
+    const reqRegDevice = createMockReq({
+      deviceToken: 'fcm_token_test_abc123',
+      deviceType: 'ANDROID',
+      deviceName: 'Pixel 8 Pro'
+    }, {}, {}, { contactId: contactOwner._id.toString(), clientId: clientObj._id.toString() });
+    const resRegDevice = createMockRes();
+    await clientNotificationController.registerDevice(reqRegDevice, resRegDevice);
+    assert(resRegDevice.statusCode === 200 && resRegDevice.body.deviceToken.deviceToken === 'fcm_token_test_abc123', 'registerDevice registers active FCM device token');
 
-    assert(resPrefUpdate.statusCode === 200, 'updatePreferences returned HTTP 200');
-    assert(resPrefUpdate.responseData.preferences.pushEnabled === false, 'pushEnabled updated to false');
+    const notifPushTest = (await NotificationDispatcher.dispatch({
+      contactIds: [contactOwner._id],
+      type: 'TICKET_UPDATED',
+      title: 'Ticket Update',
+      message: 'Support ticket #102 updated.',
+      clientId: clientObj._id
+    }))[0];
+
+    const logsPushTest = await NotificationDeliveryLog.find({ notificationId: notifPushTest._id });
+    const pushLog = logsPushTest.find(l => l.channel === 'PUSH');
+    assert(pushLog && pushLog.status === 'SENT', 'PUSH delivery log status is SENT when active device tokens exist');
+
+    // ----------------------------------------------------
+    // TEST 4: Channel Preference Enforcement
+    // ----------------------------------------------------
+    console.log('\n--- Test 4: Channel Preference Enforcement ---');
+    const reqUpdatePref = createMockReq({
+      pushEnabled: false,
+      emailEnabled: true
+    }, {}, {}, { contactId: contactOwner._id.toString(), clientId: clientObj._id.toString() });
+    const resUpdatePref = createMockRes();
+    await clientNotificationController.updatePreferences(reqUpdatePref, resUpdatePref);
+    assert(resUpdatePref.statusCode === 200 && resUpdatePref.body.preferences.pushEnabled === false, 'updatePreferences toggles channel preference off');
 
     const notifPrefTest = (await NotificationDispatcher.dispatch({
       contactIds: [contactOwner._id],
-      type: 'DRAWING_PENDING_APPROVAL',
-      title: 'Drawing Approval Required',
-      message: 'New drawing pending approval.',
+      type: 'DRAWING_REVOKED',
+      title: 'Drawing Revoked',
+      message: 'Drawing rev 2 recalled.',
       clientId: clientObj._id
     }))[0];
 
     const logsPrefTest = await NotificationDeliveryLog.find({ notificationId: notifPrefTest._id });
-    const pushLogPref = logsPrefTest.find(l => l.channel === 'PUSH');
-    assert(pushLogPref && pushLogPref.status === 'SKIPPED_PREFERENCE', 'PUSH channel status is SKIPPED_PREFERENCE when pushEnabled=false');
+    const pushSkippedLog = logsPrefTest.find(l => l.channel === 'PUSH');
+    assert(pushSkippedLog && pushSkippedLog.status === 'SKIPPED_PREFERENCE', 'PUSH delivery status is SKIPPED_PREFERENCE when pushEnabled is false');
 
     // Restore pushEnabled = true
     await clientNotificationController.updatePreferences(

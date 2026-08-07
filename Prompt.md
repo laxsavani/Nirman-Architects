@@ -970,9 +970,73 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 24. HEALTH & SYSTEM APIs
+## 24. ERP MODULE 2 - TASK MANAGEMENT SYSTEM APIs
 
-### 24.1 `GET /api/health`
+### 24.1 `POST /api/tasks/create`
+- **Description**: Creates a new task in initial status `Pending`. Captures `projectId`, `taskName`, `description`, `priority`, `departmentId`, `assignedEmployee`, `estimatedTime`, `deadline`, and `dependsOn`. Validates dependencies belong to the same project.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin).
+
+### 24.2 `GET /api/tasks`
+- **Description**: Paginated, filterable tasks list (`projectId`, `status`, `assignedEmployee`, `priority`). Role-scoped: Employees see tasks for projects they are assigned to or assigned to them; PMs/Admins see all.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 24.3 `GET /api/tasks/:id`
+- **Description**: Full task details populated with project, assigned employee, department, and dependencies.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 24.4 `PUT /api/tasks/:id`
+- **Description**: Updates general task details (taskName, description, priority, department, estimatedTime, deadline).
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin).
+
+### 24.5 `PUT /api/tasks/:id/accept` & `PUT /api/tasks/:id/reject`
+- **Description**: Assigned employee accepts (`Pending` -> `Accepted`) or rejects (`Pending` -> `Rejected` with reason) a task. Rejection routes to PM/Admin for reassignment.
+- **Auth**: Internal Employee (`authMiddleware` - Assigned Employee only).
+
+### 24.6 `PUT /api/tasks/:id/start`
+- **Description**: Assigned employee starts task work (`Accepted` -> `In Progress`). Stamps `actualStartTime = server now`. Hard-blocked if any dependent task in `dependsOn` is not `Completed`.
+- **Auth**: Internal Employee (`authMiddleware` - Assigned Employee only).
+
+### 24.7 `PUT /api/tasks/:id/submit-for-review` & `PUT /api/tasks/:id/approve`
+- **Description**: Assigned employee submits for review (`In Progress` -> `Review`), and PM/Admin approves (`Review` -> `Approved`).
+- **Auth**: Assigned Employee for submit / PM & Admin for approve.
+
+### 24.8 `PUT /api/tasks/:id/complete`
+- **Description**: Marks task completed (`Approved` -> `Completed`). Stamps `completionTime = server now`, calculates `totalWorkingTimeMinutes`, and queries HRM's `AppUsageDailySummary` to correlate `idleTimeMinutes` and `productivityScore`.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 24.9 `GET /api/tasks/:id/status-history`
+- **Description**: Audit log of workflow status transitions for a task.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 24.10 `PUT /api/tasks/:id/reassign`
+- **Description**: PM/Admin reassigns task to a new employee. Creates an audit record in `TaskReassignmentLog` and resets status to `Pending`.
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin).
+
+### 24.11 `POST /api/tasks/:id/checklist/add`, `PUT /toggle`, `DELETE /:itemId`
+- **Description**: Add, toggle completion, or delete sub-checklist items on a task.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 24.12 `POST /api/tasks/:id/comments/add` & `GET /api/tasks/:id/comments`
+- **Description**: Post and view discussion comments on a task. Available to all team members assigned to the parent project.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 24.13 `GET /api/tasks/:id/time-analysis`
+- **Description**: Retrieves live/final time analysis metrics (`actualStartTime`, `completionTime`, `totalWorkingTimeMinutes`, `isDelayed`, `idleTimeMinutes`, `productivityScore`) correlated from HRM's `AppUsageDailySummary`.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 24.14 `GET /api/tasks/overdue` & `GET /api/tasks/pending-review-too-long`
+- **Description**: Lists overdue tasks (past deadline) and tasks stuck in Review status beyond configurable threshold.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 24.15 `GET /api/projects/:projectId/tasks/breakdown`
+- **Description**: Returns project tasks breakdown statistics (`totalTasks`, `completedTasks`, `delayedTasks`, `byEmployee`), populating ERP Module 1's progress breakdown.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+---
+
+## 25. HEALTH & SYSTEM APIs
+
+### 25.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -986,7 +1050,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 198 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 219 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -1188,3 +1252,24 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 196 | `PUT /api/project-category/:id/deactivate` | Super Admin / Admin | ERP 1 - Deactivate Category Master |
 | 197 | `POST /api/department/create` | Super Admin / Admin | ERP 1 - Create Department Master |
 | 198 | `GET /api/department/active` | Employee / Auth | ERP 1 - Active Departments List |
+| 199 | `POST /api/tasks/create` | PM / Admin / Super Admin | ERP 2 - Create Task (With Same-Project Dep Check) |
+| 200 | `GET /api/tasks` | Employee / Auth | ERP 2 - Paginated & Role-Scoped Tasks List |
+| 201 | `GET /api/tasks/:id` | Employee / Auth | ERP 2 - Task Detail |
+| 202 | `PUT /api/tasks/:id` | PM / Admin / Super Admin | ERP 2 - Update Task General Details |
+| 203 | `PUT /api/tasks/:id/accept` | Assigned Employee Only | ERP 2 - Accept Task (Pending -> Accepted) |
+| 204 | `PUT /api/tasks/:id/reject` | Assigned Employee Only | ERP 2 - Reject Task (Pending -> Rejected) |
+| 205 | `PUT /api/tasks/:id/start` | Assigned Employee Only | ERP 2 - Start Task (Stamps actualStartTime) |
+| 206 | `PUT /api/tasks/:id/submit-for-review` | Assigned Employee Only | ERP 2 - Submit for Review (In Progress -> Review) |
+| 207 | `PUT /api/tasks/:id/approve` | PM / Admin / Super Admin | ERP 2 - Reviewer Approve Task (Review -> Approved) |
+| 208 | `PUT /api/tasks/:id/complete` | Employee / Auth | ERP 2 - Complete Task (HRM App-Usage Metrics) |
+| 209 | `GET /api/tasks/:id/status-history` | Employee / Auth | ERP 2 - Task Status Transition History Log |
+| 210 | `PUT /api/tasks/:id/reassign` | PM / Admin / Super Admin | ERP 2 - Reassign Task Employee & Reassignment Log |
+| 211 | `POST /api/tasks/:id/checklist/add` | Employee / Auth | ERP 2 - Add Task Checklist Item |
+| 212 | `PUT /api/tasks/:id/checklist/:itemId/toggle` | Employee / Auth | ERP 2 - Toggle Checklist Item Completion |
+| 213 | `DELETE /api/tasks/:id/checklist/:itemId` | Employee / Auth | ERP 2 - Delete Checklist Item |
+| 214 | `POST /api/tasks/:id/comments/add` | Project Team Member | ERP 2 - Add Discussion Comment |
+| 215 | `GET /api/tasks/:id/comments` | Project Team Member | ERP 2 - List Task Discussion Comments |
+| 216 | `GET /api/tasks/:id/time-analysis` | Employee / Auth | ERP 2 - Task Time Analysis (HRM Correlation) |
+| 217 | `GET /api/tasks/overdue` | Employee / Auth | ERP 2 - Overdue Tasks List |
+| 218 | `GET /api/tasks/pending-review-too-long` | Employee / Auth | ERP 2 - Stuck Review Tasks List |
+| 219 | `GET /api/projects/:projectId/tasks/breakdown` | Employee / Auth | ERP 2 - Project Tasks Breakdown Statistics |

@@ -107,6 +107,11 @@ router.use('/projects', projectRoutes);
 router.use('/project-category', projectCategoryRoutes);
 router.use('/department', departmentRoutes);
 
+const taskRoutes = require('./task.routes');
+
+// ERP Module 2 - Task Management System Routes
+router.use('/tasks', taskRoutes);
+
 // Notification & User Routes
 router.use('/notifications', notificationRoutes);
 router.use('/', userRoutes);

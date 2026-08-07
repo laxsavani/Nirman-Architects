@@ -18,10 +18,6 @@ const clientNotificationPreferenceSchema = new mongoose.Schema({
   emailEnabled: {
     type: Boolean,
     default: true
-  },
-  whatsappEnabled: {
-    type: Boolean,
-    default: false
   }
 }, { timestamps: true });
 

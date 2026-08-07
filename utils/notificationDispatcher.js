@@ -68,12 +68,11 @@ class NotificationDispatcher {
           prefs = await ClientNotificationPreference.create({
             contactId,
             pushEnabled: true,
-            emailEnabled: true,
-            whatsappEnabled: false
+            emailEnabled: true
           });
         }
 
-        // 3. Push Channel Delivery
+        // 3. Push Channel Delivery (Mobile & Desktop Push)
         if (prefs.pushEnabled) {
           const activeTokens = await ClientDeviceToken.find({ contactId, isActive: true });
           if (activeTokens.length > 0) {
@@ -127,32 +126,6 @@ class NotificationDispatcher {
           await NotificationDeliveryLog.create({
             notificationId: notification._id,
             channel: 'EMAIL',
-            status: 'SKIPPED_PREFERENCE'
-          });
-        }
-
-        // 5. WhatsApp Channel Delivery (Graceful Degradation)
-        if (prefs.whatsappEnabled) {
-          const waConfig = await WhatsAppConfig.findOne({ isActive: true });
-          if (waConfig && waConfig.apiKey) {
-            // Dispatch WhatsApp template message
-            await NotificationDeliveryLog.create({
-              notificationId: notification._id,
-              channel: 'WHATSAPP',
-              status: 'SENT'
-            });
-          } else {
-            await NotificationDeliveryLog.create({
-              notificationId: notification._id,
-              channel: 'WHATSAPP',
-              status: 'SKIPPED_NOT_CONFIGURED',
-              errorMessage: 'WhatsApp Business API credentials not configured.'
-            });
-          }
-        } else {
-          await NotificationDeliveryLog.create({
-            notificationId: notification._id,
-            channel: 'WHATSAPP',
             status: 'SKIPPED_PREFERENCE'
           });
         }

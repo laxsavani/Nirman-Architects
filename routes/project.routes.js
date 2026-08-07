@@ -33,7 +33,10 @@ router.get('/:id/team', projectController.getTeamMembers);
 router.post('/:id/responsibility-matrix/add', roleMiddleware(['PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN']), projectController.addResponsibilityMatrix);
 router.get('/:id/responsibility-matrix', projectController.getResponsibilityMatrix);
 
-// Progress Breakdown Placeholder
+const taskController = require('../controllers/task.controller');
+
+// Progress Breakdown Placeholder & Task Breakdown
 router.get('/:id/progress-breakdown', projectController.getProgressBreakdown);
+router.get('/:projectId/tasks/breakdown', taskController.getProjectTasksBreakdown);
 
 module.exports = router;

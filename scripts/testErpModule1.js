@@ -266,7 +266,7 @@ async function runErpModule1Tests() {
     const resBreakdown = mockResponse();
     await projectController.getProgressBreakdown(reqBreakdown, resBreakdown);
     assert(resBreakdown.statusCode === 200 && resBreakdown.body.overallProgress === 65, 'Progress breakdown returns current overall progress (65%)');
-    assert(resBreakdown.body.taskWise === null && resBreakdown.body.drawingWise === null, 'Progress breakdown contains placeholder-ready null entries for Task and Drawing modules');
+    assert(resBreakdown.body.taskWise !== null && resBreakdown.body.drawingWise === null, 'Progress breakdown populated with Module 2 taskWise data while preserving drawingWise placeholder');
 
     console.log('\n================================================================================');
     console.log(`🎉 ERP MODULE 1 TEST SUMMARY: ${passedCount} / ${totalTests} TESTS PASSED!`);

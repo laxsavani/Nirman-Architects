@@ -122,8 +122,7 @@ exports.getPreferences = async (req, res) => {
       prefs = await ClientNotificationPreference.create({
         contactId,
         pushEnabled: true,
-        emailEnabled: true,
-        whatsappEnabled: false
+        emailEnabled: true
       });
     }
 
@@ -141,7 +140,7 @@ exports.getPreferences = async (req, res) => {
 exports.updatePreferences = async (req, res) => {
   try {
     const { contactId } = req.clientContact;
-    const { pushEnabled, emailEnabled, whatsappEnabled } = req.body;
+    const { pushEnabled, emailEnabled } = req.body;
 
     let prefs = await ClientNotificationPreference.findOne({ contactId });
     if (!prefs) {
@@ -150,7 +149,6 @@ exports.updatePreferences = async (req, res) => {
 
     if (typeof pushEnabled === 'boolean') prefs.pushEnabled = pushEnabled;
     if (typeof emailEnabled === 'boolean') prefs.emailEnabled = emailEnabled;
-    if (typeof whatsappEnabled === 'boolean') prefs.whatsappEnabled = whatsappEnabled;
 
     await prefs.save();
 

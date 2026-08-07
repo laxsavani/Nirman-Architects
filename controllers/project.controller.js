@@ -686,9 +686,11 @@ exports.getResponsibilityMatrix = async (req, res) => {
   }
 };
 
+const Task = require('../models/Task');
+
 /**
  * GET /api/projects/:id/progress-breakdown
- * Returns overall progress and placeholders for upcoming modules
+ * Returns overall progress and populated taskWise/employeeWise breakdowns from ERP Module 2
  */
 exports.getProgressBreakdown = async (req, res) => {
   try {
@@ -699,15 +701,44 @@ exports.getProgressBreakdown = async (req, res) => {
       return sendError(res, 404, 'Project not found.');
     }
 
+    const tasks = await Task.find({ projectId: id, isActive: true }).populate('assignedEmployee', 'name email designation');
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(t => t.status === 'Completed').length;
+    const delayedTasks = tasks.filter(t => t.isDelayed).length;
+
+    const taskWise = {
+      totalTasks,
+      completedTasks,
+      delayedTasks,
+      completionRate: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+    };
+
+    const employeeMap = {};
+    for (const t of tasks) {
+      if (!t.assignedEmployee) continue;
+      const empId = t.assignedEmployee._id.toString();
+      if (!employeeMap[empId]) {
+        employeeMap[empId] = {
+          employeeId: empId,
+          employeeName: t.assignedEmployee.name,
+          designation: t.assignedEmployee.designation,
+          totalAssigned: 0,
+          completed: 0
+        };
+      }
+      employeeMap[empId].totalAssigned++;
+      if (t.status === 'Completed') employeeMap[empId].completed++;
+    }
+
     return sendSuccess(res, 200, 'Progress breakdown retrieved successfully.', {
       projectId: project._id,
       projectName: project.projectName,
       overallProgress: project.progressPercentage,
       progressIsManualOverride: project.progressIsManualOverride,
       departmentWise: [],
-      employeeWise: null, // Wired when ERP Module 2 (Task Management) is built
+      employeeWise: Object.values(employeeMap),
       drawingWise: null,  // Wired when ERP Module 3 (Drawing Management) is built
-      taskWise: null      // Wired when ERP Module 2 (Task Management) is built
+      taskWise
     });
   } catch (error) {
     console.error('Error fetching progress breakdown:', error);
