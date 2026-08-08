@@ -313,6 +313,7 @@ exports.addComment = async (req, res) => {
 
     const comment = await DrawingComment.create({
       drawingId: drawing._id,
+      drawingVersionId: drawing.currentVersionId || null,
       authorType: 'CLIENT_CONTACT',
       authorId: contactId,
       authorModel: 'ClientContact',

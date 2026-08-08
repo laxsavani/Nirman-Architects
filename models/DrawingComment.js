@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const drawingCommentSchema = new mongoose.Schema({
   drawingId:        { type: mongoose.Schema.Types.ObjectId, ref: 'Drawing', required: true },
+  drawingVersionId: { type: mongoose.Schema.Types.ObjectId, ref: 'DrawingVersion', default: null },
   authorType:       { type: String, enum: ['CLIENT_CONTACT', 'EMPLOYEE'], required: true },
   authorId:         { type: mongoose.Schema.Types.ObjectId, required: true, refPath: 'authorModel' },
   authorModel:      { type: String, enum: ['ClientContact', 'User'], required: true },
@@ -12,5 +13,6 @@ const drawingCommentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 drawingCommentSchema.index({ drawingId: 1, isDraft: 1 });
+drawingCommentSchema.index({ drawingVersionId: 1, isDraft: 1 });
 
 module.exports = mongoose.model('DrawingComment', drawingCommentSchema);

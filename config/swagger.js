@@ -4859,6 +4859,114 @@ const swaggerDefinition = {
           200: { description: 'Project drawings breakdown retrieved' }
         }
       }
+    },
+    '/drawing-versions/{versionId}/review-data': {
+      get: {
+        tags: ['ERP Module 4 - JPEG/3D Drawing Review'],
+        summary: 'Get aggregated review data payload for interactive viewer (drawingVersion, drawing, comments, markings)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'versionId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Aggregated review data retrieved' }
+        }
+      }
+    },
+    '/drawing-versions/{versionId}/comments': {
+      post: {
+        tags: ['ERP Module 4 - JPEG/3D Drawing Review'],
+        summary: 'Post general comment or image-pinned note',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'versionId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['commentText'],
+                properties: {
+                  commentText: { type: 'string', example: 'Verify railing height against safety building codes.' },
+                  annotationCoords: { type: 'object', example: { x: 450, y: 320 } },
+                  isDraft: { type: 'boolean', default: false }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Comment or note created' }
+        }
+      },
+      get: {
+        tags: ['ERP Module 4 - JPEG/3D Drawing Review'],
+        summary: 'Get version comments and notes list (shared ERP + CRM layer)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'versionId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Version comments and notes list retrieved' }
+        }
+      }
+    },
+    '/drawing-versions/{versionId}/markings': {
+      post: {
+        tags: ['ERP Module 4 - JPEG/3D Drawing Review'],
+        summary: 'Create freehand or shape marking tool annotation',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'versionId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['markingType', 'geometry'],
+                properties: {
+                  markingType: { type: 'string', enum: ['FREEHAND', 'RECTANGLE', 'CIRCLE', 'ARROW', 'HIGHLIGHT_AREA'] },
+                  geometry: { type: 'object', example: { x: 400, y: 300, width: 120, height: 80 } },
+                  color: { type: 'string', example: '#FFFF00' },
+                  linkedCommentId: { type: 'string' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Marking annotation created' }
+        }
+      },
+      get: {
+        tags: ['ERP Module 4 - JPEG/3D Drawing Review'],
+        summary: 'Get version freehand and shape markings list',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'versionId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Version markings list retrieved' }
+        }
+      }
+    },
+    '/drawing-versions/{versionId}/markings/{markingId}': {
+      delete: {
+        tags: ['ERP Module 4 - JPEG/3D Drawing Review'],
+        summary: 'Delete marking annotation (Author or Admin override)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'versionId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'markingId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Marking annotation deleted' }
+        }
+      }
     }
   }
 };

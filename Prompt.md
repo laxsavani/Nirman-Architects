@@ -1082,9 +1082,29 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 26. HEALTH & SYSTEM APIs
+## 26. ERP MODULE 4 - JPEG/3D DRAWING REVIEW APIs
 
-### 26.1 `GET /api/health`
+### 26.1 `GET /api/drawing-versions/:versionId/review-data`
+- **Description**: Returns aggregated review data payload (`drawingVersion`, `drawing`, `comments`, `markings`) for instant initialization of the shared interactive viewer component.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 26.2 `POST /api/drawing-versions/:versionId/comments` & `GET /api/drawing-versions/:versionId/comments`
+- **Description**: Internal employee posts general Comment (`annotationCoords` null) or pinned Note (`annotationCoords` present with image coordinates), and retrieves shared ERP + CRM comments and notes for a version.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 26.3 `POST /api/drawing-versions/:versionId/markings` & `GET /api/drawing-versions/:versionId/markings`
+- **Description**: Creates freehand or shape marking annotations (`FREEHAND`, `RECTANGLE`, `CIRCLE`, `ARROW`, `HIGHLIGHT_AREA`), and retrieves version markings list.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 26.4 `DELETE /api/drawing-versions/:versionId/markings/:markingId`
+- **Description**: Deletes a marking annotation (restricted to author or Admin/SuperAdmin override).
+- **Auth**: Internal Employee (`authMiddleware`).
+
+---
+
+## 27. HEALTH & SYSTEM APIs
+
+### 27.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -1098,7 +1118,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 235 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 240 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -1337,3 +1357,9 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 233 | `GET /api/drawing-category/active` | Employee / Auth | ERP 3 - Active Drawing Categories List |
 | 234 | `PUT /api/drawing-category/:id/deactivate` | Super Admin / Admin | ERP 3 - Deactivate Category Master |
 | 235 | `GET /api/projects/:projectId/drawings/breakdown` | Employee / Auth | ERP 3 - Project Drawings Breakdown Statistics |
+| 236 | `GET /api/drawing-versions/:versionId/review-data` | Employee / Auth | ERP 4 - Aggregated Viewer Payload (Version+Comments+Markings) |
+| 237 | `POST /api/drawing-versions/:versionId/comments` | Employee / Auth | ERP 4 - Post General Comment or Image-Pinned Note |
+| 238 | `GET /api/drawing-versions/:versionId/comments` | Employee / Auth | ERP 4 - Get Version Comments and Notes List |
+| 239 | `POST /api/drawing-versions/:versionId/markings` | Employee / Auth | ERP 4 - Create Freehand/Shape Marking Annotation |
+| 240 | `GET /api/drawing-versions/:versionId/markings` | Employee / Auth | ERP 4 - Get Version Markings List |
+| 241 | `DELETE /api/drawing-versions/:versionId/markings/:markingId` | Author / Admin / Super Admin | ERP 4 - Delete Marking Annotation |
