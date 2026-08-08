@@ -4557,6 +4557,308 @@ const swaggerDefinition = {
           200: { description: 'Project tasks breakdown retrieved' }
         }
       }
+    },
+    '/drawings/create': {
+      post: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Create parent drawing record',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['projectId', 'drawingName', 'categoryId'],
+                properties: {
+                  projectId: { type: 'string', example: '66b1c2f304918e24ab567890' },
+                  drawingName: { type: 'string', example: 'Master Structural Elevation Sketch' },
+                  categoryId: { type: 'string', example: '66b1c2f304918e24ab567888' },
+                  drawingNumber: { type: 'string', example: 'DWG-SK-001' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Parent drawing record created successfully' }
+        }
+      }
+    },
+    '/drawings/{drawingId}/versions/upload': {
+      post: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Upload new drawing version ("Never Permanently Replaced" Rule)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'drawingId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['filePath'],
+                properties: {
+                  filePath: { type: 'string', example: '/uploads/drawings/skyline_v2.dwg' },
+                  fileType: { type: 'string', example: 'DWG' },
+                  changeLog: { type: 'string', example: 'Revised column setbacks per client feedback' },
+                  thumbnailUrl: { type: 'string' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Drawing version uploaded successfully' },
+          400: { description: 'Blocked if drawing is GFC locked' }
+        }
+      }
+    },
+    '/drawings': {
+      get: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Get paginated list of drawings',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'query', schema: { type: 'string' } },
+          { name: 'categoryId', in: 'query', schema: { type: 'string' } },
+          { name: 'status', in: 'query', schema: { type: 'string' } },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } }
+        ],
+        responses: {
+          200: { description: 'Drawings list retrieved' }
+        }
+      }
+    },
+    '/drawings/{id}': {
+      get: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Get drawing details + full version history list',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Drawing details and version history retrieved' }
+        }
+      }
+    },
+    '/drawings/{id}/versions': {
+      get: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Get all historical versions for a drawing',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Drawing versions list retrieved' }
+        }
+      }
+    },
+    '/drawing-versions/{versionId}/pm-review': {
+      put: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'PM review gate (DESIGNER_UPLOADED -> PM_APPROVED or PM_REJECTED)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'versionId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['decision'],
+                properties: {
+                  decision: { type: 'string', enum: ['APPROVE', 'REJECT'] },
+                  comments: { type: 'string', example: 'Column C2 load specs verified' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'PM review completed' }
+        }
+      }
+    },
+    '/drawing-versions/{versionId}/admin-review': {
+      put: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Admin review gate (PM_APPROVED -> PENDING_CLIENT_APPROVAL, visibleToClient: true — CRM 5 Handoff)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'versionId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['decision'],
+                properties: {
+                  decision: { type: 'string', enum: ['APPROVE', 'REJECT'] },
+                  comments: { type: 'string', example: 'Approved for client review handoff' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Admin review completed, visibleToClient set to true' }
+        }
+      }
+    },
+    '/drawings/{id}/compare': {
+      get: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Get side-by-side version comparison data',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'versionA', in: 'query', required: true, schema: { type: 'integer' } },
+          { name: 'versionB', in: 'query', required: true, schema: { type: 'integer' } }
+        ],
+        responses: {
+          200: { description: 'Side-by-side comparison data retrieved' }
+        }
+      }
+    },
+    '/drawings/{id}/promote-to-gfc': {
+      put: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Promote drawing to GFC locked version (isGFCLocked: true)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Drawing promoted to GFC locked state' }
+        }
+      }
+    },
+    '/drawings/{id}/unlock-gfc': {
+      put: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Unlock GFC locked drawing (Super Admin only with logged reason)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['reason'],
+                properties: {
+                  reason: { type: 'string', example: 'Client requested major structural revision' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'GFC drawing unlocked successfully' }
+        }
+      }
+    },
+    '/drawing-versions/{versionId}/edit-in-place': {
+      put: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'In-place edit file for Process DWG category only (Admin only, no version increment)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'versionId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['updatedFilePath'],
+                properties: {
+                  updatedFilePath: { type: 'string', example: '/uploads/dwg/process_v1_edited.dwg' },
+                  changeLog: { type: 'string', example: 'In-place CAD layer correction' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Process DWG file edited in place' }
+        }
+      }
+    },
+    '/drawing-versions/{versionId}/client-approval-log': {
+      get: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Get internal view of CRM Module 5 client approval audit log',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'versionId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Client approval log retrieved' }
+        }
+      }
+    },
+    '/drawing-category/create': {
+      post: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Create dynamic drawing category master',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                  name: { type: 'string', example: 'Landscape Drawings' },
+                  requiresClientApproval: { type: 'boolean', default: true },
+                  restrictedEditing: { type: 'boolean', default: false }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Category created' }
+        }
+      }
+    },
+    '/drawing-category/active': {
+      get: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Get active drawing categories list',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Active categories list retrieved' }
+        }
+      }
+    },
+    '/projects/{projectId}/drawings/breakdown': {
+      get: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Get project drawings breakdown statistics',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Project drawings breakdown retrieved' }
+        }
+      }
     }
   }
 };

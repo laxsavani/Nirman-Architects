@@ -1034,9 +1034,57 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 25. HEALTH & SYSTEM APIs
+## 25. ERP MODULE 3 - DRAWING MANAGEMENT SYSTEM APIs
 
-### 25.1 `GET /api/health`
+### 25.1 `POST /api/drawings/create`
+- **Description**: Creates a parent drawing record (`projectId`, `drawingName`, `categoryId`, `drawingNumber`).
+- **Auth**: Internal Employee (`authMiddleware` - Architect / Designer / PM / Admin / SuperAdmin).
+
+### 25.2 `POST /api/drawings/:drawingId/versions/upload`
+- **Description**: Uploads a new drawing version (`filePath`, `fileType`, `changeLog`). Auto-increments version number (v1, v2, v3...), enforces the "never permanently replaced" rule, and updates parent `currentVersionId`. Blocked if drawing is GFC locked.
+- **Auth**: Internal Employee (`authMiddleware` - Architect / Designer / PM / Admin / SuperAdmin).
+
+### 25.3 `GET /api/drawings` & `GET /api/drawings/:id`
+- **Description**: Paginated drawings list and drawing detail view populated with category, current version, and full version history list.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 25.4 `GET /api/drawings/:id/versions` & `GET /api/drawings/:id/compare`
+- **Description**: Retrieves all historical versions for a drawing and side-by-side comparison data between two specified version numbers.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 25.5 `PUT /api/drawing-versions/:versionId/pm-review`
+- **Description**: PM review gate (`APPROVE` -> `PM_APPROVED`, `REJECT` -> `PM_REJECTED` with mandatory comments).
+- **Auth**: Internal Employee (`authMiddleware` - PM / Admin / SuperAdmin).
+
+### 25.6 `PUT /api/drawing-versions/:versionId/admin-review`
+- **Description**: Admin review gate (`APPROVE` -> `PENDING_CLIENT_APPROVAL`, `visibleToClient: true` — THE HANDOFF POINT TO CRM MODULE 5; `REJECT` -> `ADMIN_REJECTED` with mandatory comments).
+- **Auth**: Internal Employee (`authMiddleware` - Admin / SuperAdmin).
+
+### 25.7 `PUT /api/drawings/:id/promote-to-gfc` & `PUT /api/drawings/:id/unlock-gfc`
+- **Description**: Promotes drawing to GFC locked version (`isGFCLocked: true`, blocking further version uploads), and unlocks GFC drawing (Super Admin only with logged reason).
+- **Auth**: Admin/SuperAdmin for promote / SuperAdmin for unlock.
+
+### 25.8 `PUT /api/drawing-versions/:versionId/edit-in-place`
+- **Description**: Performs in-place file edit for Process DWG category drawings without creating a new version number.
+- **Auth**: Internal Employee (`authMiddleware` - Admin / SuperAdmin only).
+
+### 25.9 `GET /api/drawing-versions/:versionId/client-approval-log`
+- **Description**: Internal team view of CRM Module 5 client approval audit log.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 25.10 `POST /api/drawing-category/create` & `GET /api/drawing-category/active`
+- **Description**: Dynamic master endpoints to create and list drawing categories (seeds master categories: Concept, Working, Process DWG, GFC, Site, Interior).
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 25.11 `GET /api/projects/:projectId/drawings/breakdown`
+- **Description**: Returns project drawings breakdown statistics (`totalDrawings`, `approvedCount`, `pendingReviewCount`, `pendingClientApprovalCount`, `changesRequestedCount`), populating ERP Module 1's progress breakdown.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+---
+
+## 26. HEALTH & SYSTEM APIs
+
+### 26.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -1050,7 +1098,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 219 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 235 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -1273,3 +1321,19 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 217 | `GET /api/tasks/overdue` | Employee / Auth | ERP 2 - Overdue Tasks List |
 | 218 | `GET /api/tasks/pending-review-too-long` | Employee / Auth | ERP 2 - Stuck Review Tasks List |
 | 219 | `GET /api/projects/:projectId/tasks/breakdown` | Employee / Auth | ERP 2 - Project Tasks Breakdown Statistics |
+| 220 | `POST /api/drawings/create` | Arch / Des / PM / Admin | ERP 3 - Create Parent Drawing Record |
+| 221 | `POST /api/drawings/:drawingId/versions/upload` | Arch / Des / PM / Admin | ERP 3 - Upload Drawing Version (Never Replaced Rule) |
+| 222 | `GET /api/drawings` | Employee / Auth | ERP 3 - Paginated & Filterable Drawings List |
+| 223 | `GET /api/drawings/:id` | Employee / Auth | ERP 3 - Drawing Detail & Version History |
+| 224 | `GET /api/drawings/:id/versions` | Employee / Auth | ERP 3 - All Historical Drawing Versions List |
+| 225 | `GET /api/drawings/:id/compare` | Employee / Auth | ERP 3 - Side-by-Side Version Compare Data |
+| 226 | `PUT /api/drawing-versions/:versionId/pm-review` | PM / Admin / Super Admin | ERP 3 - PM Review Gate (Approve / Reject) |
+| 227 | `PUT /api/drawing-versions/:versionId/admin-review` | Admin / Super Admin | ERP 3 - Admin Review Gate (Handoff to CRM 5) |
+| 228 | `PUT /api/drawings/:id/promote-to-gfc` | Admin / Super Admin | ERP 3 - Promote Drawing to GFC Locked Version |
+| 229 | `PUT /api/drawings/:id/unlock-gfc` | Super Admin Only | ERP 3 - Unlock GFC Drawing (Logged Reason) |
+| 230 | `PUT /api/drawing-versions/:versionId/edit-in-place` | Admin / Super Admin | ERP 3 - In-Place Edit (Process DWG Category Only) |
+| 231 | `GET /api/drawing-versions/:versionId/client-approval-log` | Employee / Auth | ERP 3 - Internal View Client Approval Log |
+| 232 | `POST /api/drawing-category/create` | Super Admin / Admin | ERP 3 - Create Category Master |
+| 233 | `GET /api/drawing-category/active` | Employee / Auth | ERP 3 - Active Drawing Categories List |
+| 234 | `PUT /api/drawing-category/:id/deactivate` | Super Admin / Admin | ERP 3 - Deactivate Category Master |
+| 235 | `GET /api/projects/:projectId/drawings/breakdown` | Employee / Auth | ERP 3 - Project Drawings Breakdown Statistics |

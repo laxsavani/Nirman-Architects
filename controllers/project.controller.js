@@ -688,9 +688,11 @@ exports.getResponsibilityMatrix = async (req, res) => {
 
 const Task = require('../models/Task');
 
+const Drawing = require('../models/Drawing');
+
 /**
  * GET /api/projects/:id/progress-breakdown
- * Returns overall progress and populated taskWise/employeeWise breakdowns from ERP Module 2
+ * Returns overall progress and populated taskWise, employeeWise, and drawingWise breakdowns
  */
 exports.getProgressBreakdown = async (req, res) => {
   try {
@@ -730,6 +732,22 @@ exports.getProgressBreakdown = async (req, res) => {
       if (t.status === 'Completed') employeeMap[empId].completed++;
     }
 
+    const drawings = await Drawing.find({ projectId: id, isActive: true });
+    const totalDrawings = drawings.length;
+    const approvedDrawings = drawings.filter(d => d.status === 'APPROVED').length;
+    const pendingReviewDrawings = drawings.filter(d => ['DESIGNER_UPLOADED', 'PM_APPROVED'].includes(d.status)).length;
+    const pendingClientApprovalDrawings = drawings.filter(d => d.status === 'PENDING_CLIENT_APPROVAL').length;
+    const changesRequestedDrawings = drawings.filter(d => ['CHANGES_REQUESTED', 'PM_REJECTED', 'ADMIN_REJECTED'].includes(d.status)).length;
+
+    const drawingWise = {
+      totalDrawings,
+      approvedDrawings,
+      pendingReviewDrawings,
+      pendingClientApprovalDrawings,
+      changesRequestedDrawings,
+      approvalRate: totalDrawings > 0 ? Math.round((approvedDrawings / totalDrawings) * 100) : 0
+    };
+
     return sendSuccess(res, 200, 'Progress breakdown retrieved successfully.', {
       projectId: project._id,
       projectName: project.projectName,
@@ -737,7 +755,7 @@ exports.getProgressBreakdown = async (req, res) => {
       progressIsManualOverride: project.progressIsManualOverride,
       departmentWise: [],
       employeeWise: Object.values(employeeMap),
-      drawingWise: null,  // Wired when ERP Module 3 (Drawing Management) is built
+      drawingWise,
       taskWise
     });
   } catch (error) {

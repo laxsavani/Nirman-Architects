@@ -1,32 +1,33 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
 const drawingController = require('../controllers/drawing.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 const roleMiddleware = require('../middlewares/role.middleware');
 
-const allowedUploadRoles = ['DESIGNER', 'ARCHITECT', 'PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN'];
-const allowedPmAdminRoles = ['PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'HR', 'ARCHITECT', 'DESIGNER'];
-
-// Multer memory storage for Cloudinary processing (50MB max file limit)
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }
-});
-
-/**
- * Internal Team Drawing Routes
- */
 router.use(authMiddleware);
 
-// Upload New Drawing to Cloudinary & Save to DB
-router.post('/upload', roleMiddleware(allowedUploadRoles), upload.single('file'), drawingController.uploadDrawing);
+// Drawing Creation & Multi-Version Upload
+router.post('/create', roleMiddleware(['ARCHITECT', 'DESIGNER', 'PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN']), drawingController.createDrawing);
+router.post('/:drawingId/versions/upload', roleMiddleware(['ARCHITECT', 'DESIGNER', 'PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN']), drawingController.uploadVersion);
 
-// Upload New Revision Version (V2, V3...) of Existing Drawing to Cloudinary
-router.post('/:drawingId/upload-version', roleMiddleware(allowedUploadRoles), upload.single('file'), drawingController.uploadDrawingVersion);
+// Drawing Lists, Detail & Version History
+router.get('/', drawingController.getDrawings);
+router.get('/:id', drawingController.getDrawingById);
+router.get('/:id/versions', drawingController.getDrawingVersions);
+router.get('/:id/compare', drawingController.compareVersions);
 
-// Get Client Approval Log for a Drawing (PM / Admin / Architect)
-router.get('/:drawingId/client-approval-log', roleMiddleware(allowedPmAdminRoles), drawingController.getClientApprovalLog);
+// Internal Approval Workflow Gates
+router.put('/versions/:versionId/pm-review', roleMiddleware(['PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN']), drawingController.pmReview);
+router.put('/versions/:versionId/admin-review', roleMiddleware(['ADMIN', 'SUPER_ADMIN']), drawingController.adminReview);
+
+// GFC Promotion & Lock State Management
+router.put('/:id/promote-to-gfc', roleMiddleware(['ADMIN', 'SUPER_ADMIN']), drawingController.promoteToGFC);
+router.put('/:id/unlock-gfc', roleMiddleware(['SUPER_ADMIN']), drawingController.unlockGFC);
+
+// Process DWG In-Place Edit (Category-restricted)
+router.put('/versions/:versionId/edit-in-place', roleMiddleware(['ADMIN', 'SUPER_ADMIN']), drawingController.editInPlaceProcessDwg);
+
+// CRM Client Approval Audit Log View
+router.get('/versions/:versionId/client-approval-log', drawingController.getClientApprovalLog);
 
 module.exports = router;
-

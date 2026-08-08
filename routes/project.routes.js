@@ -34,9 +34,11 @@ router.post('/:id/responsibility-matrix/add', roleMiddleware(['PROJECT_MANAGER',
 router.get('/:id/responsibility-matrix', projectController.getResponsibilityMatrix);
 
 const taskController = require('../controllers/task.controller');
+const drawingController = require('../controllers/drawing.controller');
 
-// Progress Breakdown Placeholder & Task Breakdown
+// Progress Breakdown & Module Breakdown Endpoints
 router.get('/:id/progress-breakdown', projectController.getProgressBreakdown);
 router.get('/:projectId/tasks/breakdown', taskController.getProjectTasksBreakdown);
+router.get('/:projectId/drawings/breakdown', drawingController.getProjectDrawingsBreakdown);
 
 module.exports = router;

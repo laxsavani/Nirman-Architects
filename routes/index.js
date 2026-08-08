@@ -112,6 +112,14 @@ const taskRoutes = require('./task.routes');
 // ERP Module 2 - Task Management System Routes
 router.use('/tasks', taskRoutes);
 
+const drawingCategoryRoutes = require('./drawingCategory.routes');
+const drawingRoutes = require('./drawing.routes');
+
+// ERP Module 3 - Drawing Management System Routes
+router.use('/drawing-category', drawingCategoryRoutes);
+router.use('/drawings', drawingRoutes);
+router.use('/drawing-versions', drawingRoutes);
+
 // Notification & User Routes
 router.use('/notifications', notificationRoutes);
 router.use('/', userRoutes);
