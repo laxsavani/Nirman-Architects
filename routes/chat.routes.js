@@ -4,14 +4,17 @@ const chatController = require('../controllers/chat.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 
 /**
- * Internal Team Chat Routes
+ * Internal Team Chat Routes (ERP Module 5)
  */
 router.use(authMiddleware);
 
-// Get internal project chat history
-router.get('/:projectId', chatController.getInternalProjectChat);
+// Unread Counts per Project
+router.get('/unread-counts', chatController.getUnreadCounts);
 
-// Post internal employee chat message
+// Internal Project Chat Endpoints
+router.get('/:projectId', chatController.getInternalProjectChat);
 router.post('/:projectId/message', chatController.sendInternalMessage);
+router.post('/:projectId/sync', chatController.syncOfflineMessages);
+router.put('/:projectId/mark-read', chatController.markChatRead);
 
 module.exports = router;

@@ -4967,6 +4967,115 @@ const swaggerDefinition = {
           200: { description: 'Marking annotation deleted' }
         }
       }
+    },
+    '/projects/{projectId}/chat': {
+      get: {
+        tags: ['ERP Module 5 - Internal Project Chat'],
+        summary: 'Get internal project chat history (team-scoped / admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'since', in: 'query', schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Project chat history retrieved with resolved Task & Drawing references' },
+          403: { description: 'Access denied if calling employee is not assigned to project team' }
+        }
+      }
+    },
+    '/projects/{projectId}/chat/message': {
+      post: {
+        tags: ['ERP Module 5 - Internal Project Chat'],
+        summary: 'Send internal chat message with optional Task & Drawing references',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['messageText'],
+                properties: {
+                  messageText: { type: 'string', example: 'Check Task #42 alongside drawing v1 layout.' },
+                  mentionedIds: { type: 'array', items: { type: 'string' } },
+                  replyToMessageId: { type: 'string' },
+                  linkedTaskId: { type: 'string', example: '66b1c2f304918e24ab567891' },
+                  linkedDrawingVersionId: { type: 'string', example: '66b1c2f304918e24ab567892' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Message sent and broadcasted via Socket.io' },
+          400: { description: 'Cross-project task or drawing link rejected' }
+        }
+      }
+    },
+    '/projects/{projectId}/chat/sync': {
+      post: {
+        tags: ['ERP Module 5 - Internal Project Chat'],
+        summary: 'Batch sync offline composed messages',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['messages'],
+                properties: {
+                  messages: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      required: ['messageText'],
+                      properties: {
+                        messageText: { type: 'string' },
+                        localComposedAt: { type: 'string' },
+                        linkedTaskId: { type: 'string' },
+                        linkedDrawingVersionId: { type: 'string' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Offline messages batch synced successfully' }
+        }
+      }
+    },
+    '/projects/{projectId}/chat/mark-read': {
+      put: {
+        tags: ['ERP Module 5 - Internal Project Chat'],
+        summary: 'Mark project chat read timestamp for employee',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Chat marked as read' }
+        }
+      }
+    },
+    '/chat/unread-counts': {
+      get: {
+        tags: ['ERP Module 5 - Internal Project Chat'],
+        summary: 'Get unread message counts across accessible projects',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Unread message counts retrieved' }
+        }
+      }
     }
   }
 };

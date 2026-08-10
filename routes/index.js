@@ -75,8 +75,9 @@ router.use('/drawings', drawingRoutes);
 // CRM Module 6 - Internal Document Routes
 router.use('/documents', documentRoutes);
 
-// CRM Module 7 - Internal Chat Routes
+// Internal Chat Routes (CRM Module 7 & ERP Module 5)
 router.use('/chat', chatRoutes);
+router.use('/projects/:projectId/chat', chatRoutes);
 
 const clientTicketRoutes = require('./clientTicket.routes');
 const ticketRoutes = require('./ticket.routes');

@@ -1102,9 +1102,33 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 27. HEALTH & SYSTEM APIs
+## 27. ERP MODULE 5 - INTERNAL PROJECT CHAT APIs
 
-### 27.1 `GET /api/health`
+### 27.1 `GET /api/projects/:projectId/chat` & `GET /api/chat/:projectId`
+- **Description**: Team-scoped (or Admin company-wide oversight) internal project chat history retrieval, seamlessly interleaving EMPLOYEE and CLIENT_CONTACT messages, resolving `linkedTaskId` and `linkedDrawingVersionId` into display summary metadata.
+- **Auth**: Internal Employee (`authMiddleware` - Team Assigned / Admin / SuperAdmin).
+
+### 27.2 `POST /api/projects/:projectId/chat/message` & `POST /api/chat/:projectId/message`
+- **Description**: Posts internal chat message with optional contextual cross-linking (`linkedTaskId`, `linkedDrawingVersionId`) validated to belong to the same project. Broadcasts `new_message` event via Socket.io to project room.
+- **Auth**: Internal Employee (`authMiddleware` - Team Assigned / Admin / SuperAdmin).
+
+### 27.3 `POST /api/projects/:projectId/chat/sync` & `POST /api/chat/:projectId/sync`
+- **Description**: Processes offline batch synced messages (`isOfflineSync: true`) composed while disconnected.
+- **Auth**: Internal Employee (`authMiddleware` - Team Assigned / Admin / SuperAdmin).
+
+### 27.4 `PUT /api/projects/:projectId/chat/mark-read` & `PUT /api/chat/:projectId/mark-read`
+- **Description**: Updates `EmployeeChatReadStatus.lastReadMessageAt` for the calling employee.
+- **Auth**: Internal Employee (`authMiddleware` - Team Assigned / Admin / SuperAdmin).
+
+### 27.5 `GET /api/chat/unread-counts`
+- **Description**: Returns unread chat message counts across all projects accessible to the employee.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+---
+
+## 28. HEALTH & SYSTEM APIs
+
+### 28.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -1118,7 +1142,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 240 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 245 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -1363,3 +1387,8 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 239 | `POST /api/drawing-versions/:versionId/markings` | Employee / Auth | ERP 4 - Create Freehand/Shape Marking Annotation |
 | 240 | `GET /api/drawing-versions/:versionId/markings` | Employee / Auth | ERP 4 - Get Version Markings List |
 | 241 | `DELETE /api/drawing-versions/:versionId/markings/:markingId` | Author / Admin / Super Admin | ERP 4 - Delete Marking Annotation |
+| 242 | `GET /api/projects/:projectId/chat` | Team / Admin | ERP 5 - Team-Scoped Project Chat History |
+| 243 | `POST /api/projects/:projectId/chat/message` | Team / Admin | ERP 5 - Post Message (Contextual Task & Drawing Links) |
+| 244 | `POST /api/projects/:projectId/chat/sync` | Team / Admin | ERP 5 - Batch Sync Offline Composed Messages |
+| 245 | `PUT /api/projects/:projectId/chat/mark-read` | Team / Admin | ERP 5 - Mark Project Chat Read Timestamp |
+| 246 | `GET /api/chat/unread-counts` | Employee / Auth | ERP 5 - Employee Chat Unread Counts Across Projects |

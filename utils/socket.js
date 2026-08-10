@@ -1,6 +1,9 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const ClientProjectLink = require('../models/ClientProjectLink');
+const Project = require('../models/Project');
+const User = require('../models/User');
+const RoleMaster = require('../models/RoleMaster');
 
 let io = null;
 
@@ -39,6 +42,21 @@ function initSocket(server) {
 
           if (!link) {
             return socket.emit('error_response', { message: 'Access denied. Project is not linked or visible to client.' });
+          }
+        } else if (data && data.userId) {
+          // Internal employee verification
+          const project = await Project.findById(projectId);
+          if (!project || !project.isActive) {
+            return socket.emit('error_response', { message: 'Project not found.' });
+          }
+
+          const user = await User.findById(data.userId).populate('roleId');
+          const roleCode = user && user.roleId ? user.roleId.roleCode : '';
+          const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(roleCode);
+          const isAssigned = project.teamAssignments && project.teamAssignments.some(t => t.userId && t.userId.toString() === data.userId.toString());
+
+          if (!isAdmin && !isAssigned) {
+            return socket.emit('error_response', { message: 'Access denied. You are not assigned to this project team.' });
           }
         }
 
