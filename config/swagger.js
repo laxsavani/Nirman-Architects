@@ -5076,6 +5076,139 @@ const swaggerDefinition = {
           200: { description: 'Unread message counts retrieved' }
         }
       }
+    },
+    '/projects/{projectId}/document-folders/create': {
+      post: {
+        tags: ['ERP Module 6 - Document Management'],
+        summary: 'Create a new document folder for a project',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['folderName'],
+                properties: { folderName: { type: 'string', example: 'Contracts & Agreements' } }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Document folder created' }
+        }
+      }
+    },
+    '/projects/{projectId}/document-folders': {
+      get: {
+        tags: ['ERP Module 6 - Document Management'],
+        summary: 'Get active document folders for a project',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Document folders list retrieved' }
+        }
+      }
+    },
+    '/documents/upload': {
+      post: {
+        tags: ['ERP Module 6 - Document Management'],
+        summary: 'Upload new document & v1 (fileType validated, visibleToClient default false)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['projectId', 'documentName', 'fileType'],
+                properties: {
+                  projectId: { type: 'string' },
+                  folderId: { type: 'string' },
+                  documentName: { type: 'string', example: 'Soil Test Report.pdf' },
+                  fileType: { type: 'string', enum: ['PDF', 'DWG', 'JPEG', 'PNG', 'DOCX', 'XLSX', 'ZIP'] },
+                  fileSizeKB: { type: 'number' },
+                  restrictedToRoles: { type: 'array', items: { type: 'string' } }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'Document created and v1 uploaded' },
+          400: { description: 'Unsupported file type' }
+        }
+      }
+    },
+    '/documents/{id}/versions/upload': {
+      post: {
+        tags: ['ERP Module 6 - Document Management'],
+        summary: 'Upload new version for document (Auto-increment version, RESETS visibleToClient: false)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  changeLog: { type: 'string', example: 'Updated clause 4.2' },
+                  fileSizeKB: { type: 'number' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: { description: 'New version uploaded and visibleToClient reset to false' }
+        }
+      }
+    },
+    '/documents/{id}/visibility': {
+      put: {
+        tags: ['ERP Module 6 - Document Management'],
+        summary: 'PM/Admin toggle visibleToClient flag (The CRM Module 6 handoff control)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['visibleToClient'],
+                properties: { visibleToClient: { type: 'boolean' } }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Client visibility updated' }
+        }
+      }
+    },
+    '/documents/{id}/access-log': {
+      get: {
+        tags: ['ERP Module 6 - Document Management'],
+        summary: 'Internal PM/Admin view of document access audit history',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Document access audit logs retrieved' }
+        }
+      }
     }
   }
 };

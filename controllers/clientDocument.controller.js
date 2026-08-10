@@ -22,7 +22,7 @@ async function verifyProjectLink(clientId, projectId) {
 exports.getProjectDocuments = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { folder, search } = req.query;
+    const { folder, search } = req.query || {};
     const clientId = req.clientContact.clientId;
 
     // Security Isolation: Verify project is genuinely linked & visible to this Client

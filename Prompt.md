@@ -1126,9 +1126,33 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 28. HEALTH & SYSTEM APIs
+## 28. ERP MODULE 6 - DOCUMENT MANAGEMENT APIs
 
-### 28.1 `GET /api/health`
+### 28.1 `POST /api/projects/:projectId/document-folders/create` & `GET /api/projects/:projectId/document-folders`
+- **Description**: Creates a new project document folder and lists active project folders.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 28.2 `POST /api/documents/upload` & `POST /api/documents/:id/versions/upload`
+- **Description**: Uploads a new document with initial v1 (`visibleToClient: false` default) or uploads a new `DocumentVersion` (auto-increments version number and automatically RESETS `visibleToClient` to `false`). Validates file types against `['PDF', 'DWG', 'JPEG', 'PNG', 'DOCX', 'XLSX', 'ZIP']`.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 28.3 `PUT /api/documents/:id/visibility`
+- **Description**: PM/Admin toggle control for `visibleToClient` boolean flag. This is the literal handoff action that makes a document appear or disappear in CRM Module 6's client portal.
+- **Auth**: PM / Admin / Super Admin (`authMiddleware`).
+
+### 28.4 `GET /api/documents/:id/preview` & `GET /api/documents/:id/download`
+- **Description**: Authorizes preview or download of document files, enforcing `restrictedToRoles` checks and automatically logging `VIEW` or `DOWNLOAD` actions into `DocumentAccessLog`.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 28.5 `GET /api/documents/:id/access-log` & `GET /api/documents/client/:clientId/engagement-summary`
+- **Description**: Retrieves internal and client view/download audit logs for a document, and computes client document engagement statistics (engaged vs never opened).
+- **Auth**: PM / Admin / Super Admin (`authMiddleware`).
+
+---
+
+## 29. HEALTH & SYSTEM APIs
+
+### 29.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -1142,7 +1166,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 245 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 260 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -1392,3 +1416,17 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 244 | `POST /api/projects/:projectId/chat/sync` | Team / Admin | ERP 5 - Batch Sync Offline Composed Messages |
 | 245 | `PUT /api/projects/:projectId/chat/mark-read` | Team / Admin | ERP 5 - Mark Project Chat Read Timestamp |
 | 246 | `GET /api/chat/unread-counts` | Employee / Auth | ERP 5 - Employee Chat Unread Counts Across Projects |
+| 247 | `POST /api/projects/:projectId/document-folders/create` | Project Team | ERP 6 - Create Document Folder |
+| 248 | `GET /api/projects/:projectId/document-folders` | Project Team | ERP 6 - List Active Document Folders |
+| 249 | `PUT /api/document-folders/:id` | Project Team | ERP 6 - Rename Document Folder |
+| 250 | `DELETE /api/document-folders/:id` | Project Team / Admin | ERP 6 - Soft-Delete Document Folder |
+| 251 | `POST /api/documents/upload` | Project Team | ERP 6 - Upload Document & v1 (FileType Validated) |
+| 252 | `POST /api/documents/:id/versions/upload` | Project Team | ERP 6 - Upload Document Version (Resets Client Visibility) |
+| 253 | `GET /api/projects/:projectId/documents` | Project Team | ERP 6 - Internal Projects Document List (Role Filtered) |
+| 254 | `GET /api/documents/:id` | Project Team | ERP 6 - Document Detail & Version History |
+| 255 | `PUT /api/documents/:id` | Project Team | ERP 6 - Update Document Metadata & Folder |
+| 256 | `DELETE /api/documents/:id` | PM / Admin / Super Admin | ERP 6 - Soft-Delete Document |
+| 257 | `PUT /api/documents/:id/visibility` | PM / Admin / Super Admin | ERP 6 - Toggle Client Visibility (CRM 6 Handoff) |
+| 258 | `GET /api/documents/:id/preview` | Project Team | ERP 6 - Preview Document File & Log VIEW Action |
+| 259 | `GET /api/documents/:id/download` | Project Team | ERP 6 - Download Document File & Log DOWNLOAD Action |
+| 260 | `GET /api/documents/:id/access-log` | PM / Admin / Super Admin | ERP 6 - View Internal & Client Document Access Audit Log |

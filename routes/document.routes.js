@@ -1,20 +1,31 @@
 const express = require('express');
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 const documentController = require('../controllers/document.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
-const roleMiddleware = require('../middlewares/role.middleware');
 
-const allowedPmAdminRoles = ['PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'HR', 'ARCHITECT'];
-
-/**
- * Internal Team Document Routes
- */
 router.use(authMiddleware);
 
-// Get Client Access Log for a Document (PM / Admin / Architect)
-router.get('/:documentId/client-access-log', roleMiddleware(allowedPmAdminRoles), documentController.getDocumentAccessLog);
+// Document Upload & Versioning
+router.post('/upload', documentController.uploadDocument);
+router.post('/:id/versions/upload', documentController.uploadDocumentVersion);
 
-// Get Client Document Engagement Summary (PM / Admin / Architect)
-router.get('/client-engagement/:clientId', roleMiddleware(allowedPmAdminRoles), documentController.getClientEngagementSummary);
+// Project Documents List & Search
+router.get('/search', documentController.searchDocuments);
+router.get('/', documentController.getProjectDocuments);
+
+// Document Details, Update, Soft-Delete
+router.get('/:id', documentController.getDocumentById);
+router.put('/:id', documentController.updateDocument);
+router.delete('/:id', documentController.deleteDocument);
+
+// Visibility Control (CRM Module 6 Handoff)
+router.put('/:id/visibility', documentController.toggleClientVisibility);
+
+// Logged Preview & Download
+router.get('/:id/preview', documentController.previewDocument);
+router.get('/:id/download', documentController.downloadDocument);
+
+// Internal Access Audit History Log
+router.get('/:id/access-log', documentController.getDocumentAccessLog);
 
 module.exports = router;

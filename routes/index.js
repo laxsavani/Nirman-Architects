@@ -21,6 +21,7 @@ const clientProjectLinkRoutes = require('./clientProjectLink.routes');
 const clientPortalRoutes = require('./clientPortal.routes');
 const drawingRoutes = require('./drawing.routes');
 const documentRoutes = require('./document.routes');
+const documentFolderRoutes = require('./documentFolder.routes');
 const chatRoutes = require('./chat.routes');
 
 // Health Check Endpoint
@@ -72,8 +73,11 @@ router.use('/client', clientPortalRoutes);
 // CRM Module 5 - Internal Drawing Routes
 router.use('/drawings', drawingRoutes);
 
-// CRM Module 6 - Internal Document Routes
+// Document Management Routes (CRM Module 6 & ERP Module 6)
 router.use('/documents', documentRoutes);
+router.use('/projects/:projectId/documents', documentRoutes);
+router.use('/document-folders', documentFolderRoutes);
+router.use('/projects/:projectId/document-folders', documentFolderRoutes);
 
 // Internal Chat Routes (CRM Module 7 & ERP Module 5)
 router.use('/chat', chatRoutes);
