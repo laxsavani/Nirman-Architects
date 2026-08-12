@@ -8,6 +8,7 @@ const attendanceSchema = new mongoose.Schema({
   clientClockIn:   { type: Date, default: null },     // reference only
   clientClockOut:  { type: Date, default: null },     // reference only
   workingHours:    { type: Number, default: 0 },      // In hours
+  mode:            { type: String, enum: ['OFFICE_AUTO', 'SITE_MOBILE'], default: 'OFFICE_AUTO' },
   status:          { type: String, default: 'PRESENT', enum: ['PRESENT', 'ABSENT', 'HALF_DAY', 'LEAVE', 'OFFLINE', 'AUTO_CLOSED'] },
   reason:          { type: String, default: '' },      // E.g., "Normal Shutdown", "Unexpected Shutdown", "Power Failure"
   isOfflineEntry:  { type: Boolean, default: false }, // synced late from local JSON queue

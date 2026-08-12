@@ -5209,6 +5209,98 @@ const swaggerDefinition = {
           200: { description: 'Document access audit logs retrieved' }
         }
       }
+    },
+    '/projects/{id}/dashboard': {
+      get: {
+        tags: ['ERP Module 7 - Project Analysis & Dashboards'],
+        summary: 'Get aggregated Project Dashboard metrics',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Project dashboard metrics retrieved' }
+        }
+      }
+    },
+    '/projects/{id}/analysis/employee-wise': {
+      get: {
+        tags: ['ERP Module 7 - Project Analysis & Dashboards'],
+        summary: 'Get Employee-wise performance analysis (with HRM Attendance cross-reference)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Employee-wise performance analysis retrieved' }
+        }
+      }
+    },
+    '/projects/{id}/analysis/task-wise': {
+      get: {
+        tags: ['ERP Module 7 - Project Analysis & Dashboards'],
+        summary: 'Get Task-wise analysis reporting view (filterable)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'status', in: 'query', schema: { type: 'string' } },
+          { name: 'priority', in: 'query', schema: { type: 'string' } },
+          { name: 'assignedEmployee', in: 'query', schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Task-wise analysis reporting view retrieved' }
+        }
+      }
+    },
+    '/projects/{id}/analysis/drawing-wise': {
+      get: {
+        tags: ['ERP Module 7 - Project Analysis & Dashboards'],
+        summary: 'Get Drawing-wise progress analysis',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Drawing-wise progress analysis retrieved' }
+        }
+      }
+    },
+    '/projects/{id}/analysis/department-wise': {
+      get: {
+        tags: ['ERP Module 7 - Project Analysis & Dashboards'],
+        summary: 'Get Department-wise progress breakdown',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Department-wise progress breakdown retrieved' }
+        }
+      }
+    },
+    '/analytics/company-wide-summary': {
+      get: {
+        tags: ['ERP Module 7 - Project Analysis & Dashboards'],
+        summary: 'Get Company-Wide summary across all active projects (Admin Dashboard source)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Company-wide summary retrieved' },
+          403: { description: 'Admin or Super Admin access only' }
+        }
+      }
+    },
+    '/analytics/refresh-snapshot/{projectId}': {
+      post: {
+        tags: ['ERP Module 7 - Project Analysis & Dashboards'],
+        summary: 'Refresh cached analytics snapshot for a project',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Analytics snapshot refreshed' }
+        }
+      }
     }
   }
 };

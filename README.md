@@ -173,6 +173,18 @@ node agent.js
 - **Real-Time & Offline Sync**: Socket.io real-time room broadcasting (`project_<projectId>`), offline message batch sync (`POST /sync`).
 - **Read Receipts & Badges**: Internal read status tracking (`EmployeeChatReadStatus`) powering unread badges (`GET /api/chat/unread-counts`).
 
+### ERP Module 6: Document Management
+- **Authoritative Document Repository**: Folder hierarchy (`DocumentFolder`), file type validation (`PDF`, `DWG`, `JPEG`, `PNG`, `DOCX`, `XLSX`, `ZIP`), multi-version revision history (`DocumentVersion`).
+- **Automatic Client Visibility Reset**: Uploading a new version automatically resets `visibleToClient` to `false`, requiring explicit internal re-verification.
+- **Client Portal Handoff & Audit Logging**: `visibleToClient: true` toggle immediately exposes document to CRM Module 6 client portal; internal and client `VIEW`/`DOWNLOAD` actions logged in `DocumentAccessLog`.
+
+### ERP Module 7: Project Analysis & Dashboards
+- **Project Dashboard Metrics**: Aggregated project progress %, completion %, delay status (`isDelayed`), overdue tasks, drawing approval rate, budget, and milestone timeline data.
+- **Employee-Wise Analysis**: Per-employee task completion, working hours, average completion minutes, average productivity score (excluding `null` values), and HRM Attendance cross-referencing (office vs site days).
+- **Task-Wise & Drawing-Wise Analysis**: Formatted, filterable task reporting view and drawing version approval status breakdown.
+- **Department-Wise Progress**: Grouped task completion rates across internal departments.
+- **Company-Wide Summary & Snapshot Caching**: Admin dashboard rollup across all active projects and `ProjectAnalyticsSnapshot` database caching layer.
+
 ---
 
 ## 🗄️ Database Schemas Directory

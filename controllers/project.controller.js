@@ -687,12 +687,12 @@ exports.getResponsibilityMatrix = async (req, res) => {
 };
 
 const Task = require('../models/Task');
-
+const Department = require('../models/Department');
 const Drawing = require('../models/Drawing');
 
 /**
  * GET /api/projects/:id/progress-breakdown
- * Returns overall progress and populated taskWise, employeeWise, and drawingWise breakdowns
+ * Returns overall progress and fully populated departmentWise, employeeWise, drawingWise, and taskWise breakdowns
  */
 exports.getProgressBreakdown = async (req, res) => {
   try {
@@ -703,7 +703,13 @@ exports.getProgressBreakdown = async (req, res) => {
       return sendError(res, 404, 'Project not found.');
     }
 
-    const tasks = await Task.find({ projectId: id, isActive: true }).populate('assignedEmployee', 'name email designation');
+    const tasks = await Task.find({ projectId: id, isActive: true })
+      .populate({
+        path: 'assignedEmployee',
+        select: 'name email designation department',
+        populate: { path: 'department' }
+      });
+
     const totalTasks = tasks.length;
     const completedTasks = tasks.filter(t => t.status === 'Completed').length;
     const delayedTasks = tasks.filter(t => t.isDelayed).length;
@@ -716,21 +722,43 @@ exports.getProgressBreakdown = async (req, res) => {
     };
 
     const employeeMap = {};
+    const deptMap = {};
+
     for (const t of tasks) {
-      if (!t.assignedEmployee) continue;
-      const empId = t.assignedEmployee._id.toString();
-      if (!employeeMap[empId]) {
-        employeeMap[empId] = {
-          employeeId: empId,
-          employeeName: t.assignedEmployee.name,
-          designation: t.assignedEmployee.designation,
-          totalAssigned: 0,
-          completed: 0
-        };
+      if (t.assignedEmployee) {
+        const empId = t.assignedEmployee._id.toString();
+        if (!employeeMap[empId]) {
+          employeeMap[empId] = {
+            employeeId: empId,
+            employeeName: t.assignedEmployee.name,
+            designation: t.assignedEmployee.designation,
+            totalAssigned: 0,
+            completed: 0
+          };
+        }
+        employeeMap[empId].totalAssigned++;
+        if (t.status === 'Completed') employeeMap[empId].completed++;
       }
-      employeeMap[empId].totalAssigned++;
-      if (t.status === 'Completed') employeeMap[empId].completed++;
+
+      let deptName = 'Unassigned Department';
+      if (t.departmentId) {
+        const dDoc = await Department.findById(t.departmentId);
+        if (dDoc) deptName = dDoc.name;
+      } else if (t.assignedEmployee && t.assignedEmployee.department) {
+        deptName = typeof t.assignedEmployee.department === 'object' ? t.assignedEmployee.department.name : t.assignedEmployee.department;
+      }
+
+      if (!deptMap[deptName]) {
+        deptMap[deptName] = { departmentName: deptName, totalTasks: 0, completedTasks: 0 };
+      }
+      deptMap[deptName].totalTasks++;
+      if (t.status === 'Completed') deptMap[deptName].completedTasks++;
     }
+
+    const departmentWise = Object.values(deptMap).map(d => ({
+      ...d,
+      completionRate: d.totalTasks > 0 ? Math.round((d.completedTasks / d.totalTasks) * 100) : 0
+    }));
 
     const drawings = await Drawing.find({ projectId: id, isActive: true });
     const totalDrawings = drawings.length;
@@ -750,10 +778,10 @@ exports.getProgressBreakdown = async (req, res) => {
 
     return sendSuccess(res, 200, 'Progress breakdown retrieved successfully.', {
       projectId: project._id,
-      projectName: project.projectName,
+      projectName: project.projectName || project.name,
       overallProgress: project.progressPercentage,
       progressIsManualOverride: project.progressIsManualOverride,
-      departmentWise: [],
+      departmentWise,
       employeeWise: Object.values(employeeMap),
       drawingWise,
       taskWise

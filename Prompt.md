@@ -1150,9 +1150,37 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 29. HEALTH & SYSTEM APIs
+## 29. ERP MODULE 7 - PROJECT ANALYSIS & DASHBOARDS APIs
 
-### 29.1 `GET /api/health`
+### 29.1 `GET /api/projects/:id/dashboard`
+- **Description**: Returns aggregated project dashboard metrics (overall progress %, completion %, delay status `isDelayed`, overdue task count, pending tasks count, employee performance summary, drawing status summary, budget, timeline data).
+- **Auth**: Project Team Member / Admin / Super Admin (`authMiddleware`).
+
+### 29.2 `GET /api/projects/:id/analysis/employee-wise` & `GET /api/projects/:id/analysis/employee-wise/:userId`
+- **Description**: Computes per-employee performance metrics per project (assigned tasks, completed tasks, delayed tasks, average completion minutes, average productivity score excluding nulls, total working minutes, and HRM Attendance cross-referencing office vs site days). Detailed team comparison restricted to PM/Admin; regular employees receive personal breakdown.
+- **Auth**: PM / Admin / Super Admin for full team; Project Team Member for personal view (`authMiddleware`).
+
+### 29.3 `GET /api/projects/:id/analysis/task-wise`
+- **Description**: Formatted, filterable task analysis reporting view (supports filtering by `status`, `priority`, `assignedEmployee`, converting working minutes to actual hours).
+- **Auth**: Project Team Member / Admin / Super Admin (`authMiddleware`).
+
+### 29.4 `GET /api/projects/:id/analysis/drawing-wise` & `GET /api/projects/:id/analysis/department-wise`
+- **Description**: Computes drawing-wise progress (version status and category breakdown with approval rates) and department-wise progress (task completion rates grouped by internal Department master).
+- **Auth**: Project Team Member / Admin / Super Admin (`authMiddleware`).
+
+### 29.5 `GET /api/analytics/company-wide-summary`
+- **Description**: Aggregates company-wide analytics across all active projects for the Admin Dashboard (total projects by status, average progress %, delayed projects list).
+- **Auth**: Admin / Super Admin (`authMiddleware`).
+
+### 29.6 `POST /api/analytics/refresh-snapshot/:projectId` & `GET /api/analytics/snapshot/:projectId`
+- **Description**: Refreshes and retrieves cached project analytics snapshot from `ProjectAnalyticsSnapshot`.
+- **Auth**: Admin / Super Admin (`authMiddleware`).
+
+---
+
+## 30. HEALTH & SYSTEM APIs
+
+### 30.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -1166,7 +1194,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 260 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 268 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -1430,3 +1458,11 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 258 | `GET /api/documents/:id/preview` | Project Team | ERP 6 - Preview Document File & Log VIEW Action |
 | 259 | `GET /api/documents/:id/download` | Project Team | ERP 6 - Download Document File & Log DOWNLOAD Action |
 | 260 | `GET /api/documents/:id/access-log` | PM / Admin / Super Admin | ERP 6 - View Internal & Client Document Access Audit Log |
+| 261 | `GET /api/projects/:id/dashboard` | Project Team | ERP 7 - Aggregated Project Dashboard Metrics |
+| 262 | `GET /api/projects/:id/analysis/employee-wise` | PM / Admin / Super Admin | ERP 7 - Employee-Wise Performance Analysis (HRM Attendance) |
+| 263 | `GET /api/projects/:id/analysis/employee-wise/:userId` | PM / Admin / Super Admin | ERP 7 - Single Employee Project Deep-Dive |
+| 264 | `GET /api/projects/:id/analysis/task-wise` | Project Team | ERP 7 - Task-Wise Analysis Reporting View |
+| 265 | `GET /api/projects/:id/analysis/drawing-wise` | Project Team | ERP 7 - Drawing-Wise Progress & Approval Analysis |
+| 266 | `GET /api/projects/:id/analysis/department-wise` | Project Team | ERP 7 - Department-Wise Progress Breakdown |
+| 267 | `GET /api/analytics/company-wide-summary` | Admin / Super Admin | ERP 7 - Company-Wide Summary (Admin Dashboard Source) |
+| 268 | `POST /api/analytics/refresh-snapshot/:projectId` | Admin / Super Admin | ERP 7 - Refresh Cached Project Analytics Snapshot |
