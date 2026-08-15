@@ -6,6 +6,7 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const RoleMaster = require('../models/RoleMaster');
 const AppUsageDailySummary = require('../models/AppUsageDailySummary');
+const InternalNotificationDispatcher = require('../utils/internalNotificationDispatcher');
 const { sendSuccess, sendError } = require('../utils/response');
 
 /**
@@ -168,6 +169,18 @@ exports.createTask = async (req, res) => {
       .populate('assignedEmployee', 'name email designation department')
       .populate('departmentId', 'name')
       .populate('dependsOn', 'taskName status');
+
+    // Dispatch internal notification for new task assignment
+    const empIdStr = (task.assignedEmployee._id || task.assignedEmployee).toString();
+    InternalNotificationDispatcher.dispatch({
+      userIds: [empIdStr],
+      projectId: task.projectId.toString(),
+      type: 'NEW_TASK_ASSIGNED',
+      title: 'New Task Assigned',
+      message: `You have been assigned a new task: ${task.taskName}`,
+      deepLink: `project/${task.projectId}/tasks/${task._id}`,
+      refId: task._id
+    }).catch(err => console.error('Notification dispatch error:', err));
 
     return sendSuccess(res, 201, 'Task created successfully.', { task: populated });
   } catch (error) {
@@ -820,6 +833,22 @@ exports.getOverdueTasks = async (req, res) => {
       .populate('projectId', 'projectName name')
       .populate('assignedEmployee', 'name email designation')
       .sort({ deadline: 1 });
+
+    // Dispatch three-way TASK_OVERDUE notifications (employee + PM + Admin)
+    for (const t of overdueTasks) {
+      if (t.assignedEmployee) {
+        InternalNotificationDispatcher.dispatch({
+          userIds: [t.assignedEmployee._id.toString()],
+          broadcastToRoles: ['PROJECT_MANAGER', 'SUPER_ADMIN'],
+          projectId: t.projectId ? t.projectId._id.toString() : null,
+          type: 'TASK_OVERDUE',
+          title: 'Task Overdue Warning',
+          message: `Task "${t.taskName}" is overdue! Deadline was ${new Date(t.deadline).toLocaleDateString()}.`,
+          deepLink: `project/${t.projectId ? t.projectId._id : ''}/tasks/${t._id}`,
+          refId: t._id
+        }).catch(err => console.error('Overdue notification dispatch error:', err));
+      }
+    }
 
     return sendSuccess(res, 200, 'Overdue tasks retrieved successfully.', { overdueTasks, count: overdueTasks.length });
   } catch (error) {

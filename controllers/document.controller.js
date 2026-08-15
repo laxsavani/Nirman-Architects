@@ -4,6 +4,7 @@ const DocumentFolder = require('../models/DocumentFolder');
 const DocumentAccessLog = require('../models/DocumentAccessLog');
 const Project = require('../models/Project');
 const RoleMaster = require('../models/RoleMaster');
+const InternalNotificationDispatcher = require('../utils/internalNotificationDispatcher');
 const { sendSuccess, sendError } = require('../utils/response');
 
 const SUPPORTED_FILE_TYPES = ['PDF', 'DWG', 'JPEG', 'PNG', 'DOCX', 'XLSX', 'ZIP'];
@@ -105,6 +106,17 @@ exports.uploadDocument = async (req, res) => {
       .populate('currentVersionId')
       .populate('folderId', 'folderName')
       .populate('createdBy', 'name email designation');
+
+    // Dispatch internal notification
+    InternalNotificationDispatcher.dispatch({
+      broadcastToRoles: ['PROJECT_MANAGER', 'SUPER_ADMIN'],
+      projectId: document.projectId.toString(),
+      type: 'DOCUMENT_UPLOADED',
+      title: 'New Document Uploaded',
+      message: `Document "${document.documentName}" was uploaded to project folder.`,
+      deepLink: `project/${document.projectId}/documents/${document._id}`,
+      refId: document._id
+    }).catch(err => console.error('Notification dispatch error:', err));
 
     return sendSuccess(res, 201, 'Document uploaded successfully.', { document: populatedDoc });
   } catch (error) {

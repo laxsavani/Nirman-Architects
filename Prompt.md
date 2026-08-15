@@ -1198,9 +1198,33 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 31. HEALTH & SYSTEM APIs
+## 31. ERP MODULE 9 - NOTIFICATION SYSTEM (INTERNAL) APIs
 
-### 31.1 `GET /api/health`
+### 31.1 `GET /api/notifications/my` & `GET /api/notifications/unread-count`
+- **Description**: Retrieves caller's In-App notification list (Notification Center) with pagination and unread notification count.
+- **Auth**: Authenticated Employee (`authMiddleware`).
+
+### 31.2 `PUT /api/notifications/:id/read` & `PUT /api/notifications/mark-all-read`
+- **Description**: Marks single or all employee In-App notifications as read.
+- **Auth**: Authenticated Employee (`authMiddleware`).
+
+### 31.3 `GET /api/notifications/preferences` & `PUT /api/notifications/preferences`
+- **Description**: Retrieves and updates employee channel delivery preferences (`pushEnabled`, `emailEnabled`, `whatsappEnabled`).
+- **Auth**: Authenticated Employee (`authMiddleware`).
+
+### 31.4 `POST /api/notifications/register-device` & `DELETE /api/notifications/unregister-device`
+- **Description**: Registers and unregisters employee push device tokens (`ANDROID` / `IOS`).
+- **Auth**: Authenticated Employee (`authMiddleware`).
+
+### 31.5 `GET /api/notifications/:notificationId/delivery-log`
+- **Description**: Delivery audit log debugging utility for Admins.
+- **Auth**: Admin / Super Admin (`authMiddleware`).
+
+---
+
+## 32. HEALTH & SYSTEM APIs
+
+### 32.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -1214,7 +1238,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 286 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 295 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -1504,3 +1528,12 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 284 | `POST /api/reports/scheduled/create` | Auth User | ERP 8 - Create Scheduled Report Configuration |
 | 285 | `GET /api/reports/scheduled/my` | Auth User | ERP 8 - Get Active Scheduled Report Configurations |
 | 286 | `DELETE /api/reports/scheduled/:id` | Auth User | ERP 8 - Remove Scheduled Report Configuration |
+| 287 | `GET /api/notifications/my` | Auth Employee | ERP 9 - Get In-App Notification Center List |
+| 288 | `GET /api/notifications/unread-count` | Auth Employee | ERP 9 - Get Unread Notification Count |
+| 289 | `PUT /api/notifications/:id/read` | Auth Employee | ERP 9 - Mark Single Notification as Read |
+| 290 | `PUT /api/notifications/mark-all-read` | Auth Employee | ERP 9 - Mark All Employee Notifications as Read |
+| 291 | `GET /api/notifications/preferences` | Auth Employee | ERP 9 - Get Employee Channel Delivery Preferences |
+| 292 | `PUT /api/notifications/preferences` | Auth Employee | ERP 9 - Update Employee Channel Delivery Preferences |
+| 293 | `POST /api/notifications/register-device` | Auth Employee | ERP 9 - Register Employee Push Device Token |
+| 294 | `DELETE /api/notifications/unregister-device` | Auth Employee | ERP 9 - Unregister Employee Push Device Token |
+| 295 | `GET /api/notifications/:notificationId/delivery-log` | Admin / Super Admin | ERP 9 - Delivery Audit Log Debugging Utility |

@@ -191,6 +191,11 @@ node agent.js
 - **Sync vs Background Job Execution Threshold**: Small-scope reports generate synchronously with immediate file download links; large-scope (`companyWide: true`, >10 projects, >90 days) reports route to background execution with status tracking (`PENDING` -> `GENERATING` -> `READY` / `FAILED`) and polling.
 - **Audit & Re-Verification Security**: Download history tracking (`GeneratedReport`), permission re-verification at download time, and scheduled report configurations (`ScheduledReport`).
 
+### ERP Module 9: Notification System (Internal)
+- **Internal Employee Delivery Dispatcher**: Multi-channel notification engine (`InternalNotificationDispatcher`) servicing all 20 deferred hookpoints across ERP Modules 1–8 (`PROJECT_STATUS_CHANGED`, `PROJECT_DELAY`, `MILESTONE_APPROACHING`, `NEW_TASK_ASSIGNED`, `TASK_REJECTED`, `TASK_OVERDUE`, `TASK_STUCK_IN_REVIEW`, `TASK_REASSIGNED`, `DRAWING_UPLOADED`, `DRAWING_PENDING_PM_REVIEW`, `DRAWING_PENDING_ADMIN_REVIEW`, `DRAWING_REJECTED_INTERNAL`, `DRAWING_CLIENT_CHANGES_REQUESTED`, `DRAWING_APPROVED_BY_CLIENT`, `CHAT_NEW_MESSAGE`, `CHAT_MENTION`, `DOCUMENT_UPLOADED`, `REPORT_READY`, `EMPLOYEE_CHECK_IN`, `DEADLINE_REMINDER`).
+- **Dynamic Role-Broadcast & De-Duplication**: Target resolution via `broadcastToRoles` (`'PROJECT_MANAGER'`, `'ADMIN'`, `'SUPER_ADMIN'`) and target `userId` de-duplication.
+- **In-App Notification Center & Channel Preferences**: `InternalNotification` tracking, unread count badge, mark-as-read, per-employee channel preference filters (`pushEnabled`, `emailEnabled`, `whatsappEnabled`), push device token registration, and delivery audit log tracking (`InternalNotificationDeliveryLog`).
+
 ---
 
 ## 🗄️ Database Schemas Directory

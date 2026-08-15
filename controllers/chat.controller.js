@@ -5,6 +5,7 @@ const Drawing = require('../models/Drawing');
 const DrawingVersion = require('../models/DrawingVersion');
 const EmployeeChatReadStatus = require('../models/EmployeeChatReadStatus');
 const RoleMaster = require('../models/RoleMaster');
+const InternalNotificationDispatcher = require('../utils/internalNotificationDispatcher');
 const { sendSuccess, sendError } = require('../utils/response');
 const { emitToProjectRoom } = require('../utils/socket');
 
@@ -173,6 +174,29 @@ exports.sendInternalMessage = async (req, res) => {
 
     // Real-Time Socket.io Broadcast to shared project room
     emitToProjectRoom(projectId, 'new_message', { message: mObj });
+
+    // Internal Notification Dispatching
+    if (Array.isArray(mentionedIds) && mentionedIds.length > 0) {
+      InternalNotificationDispatcher.dispatch({
+        userIds: mentionedIds.map(id => id.toString()),
+        projectId,
+        type: 'CHAT_MENTION',
+        title: 'You were mentioned in Project Chat',
+        message: `${mObj.authorId ? mObj.authorId.name : 'Team member'} mentioned you: "${messageText.slice(0, 50)}..."`,
+        deepLink: `project/${projectId}/chat`,
+        refId: createdMsg._id
+      }).catch(err => console.error('Chat mention notification dispatch error:', err));
+    } else {
+      InternalNotificationDispatcher.dispatch({
+        broadcastToRoles: ['PROJECT_MANAGER', 'SUPER_ADMIN'],
+        projectId,
+        type: 'CHAT_NEW_MESSAGE',
+        title: 'New Project Chat Message',
+        message: `${mObj.authorId ? mObj.authorId.name : 'Team member'}: "${messageText.slice(0, 50)}..."`,
+        deepLink: `project/${projectId}/chat`,
+        refId: createdMsg._id
+      }).catch(err => console.error('Chat new message notification dispatch error:', err));
+    }
 
     return sendSuccess(res, 201, 'Internal chat message sent successfully.', { message: mObj });
   } catch (error) {

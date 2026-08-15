@@ -5,6 +5,7 @@ const DrawingVersionStatusHistory = require('../models/DrawingVersionStatusHisto
 const ClientApprovalLog = require('../models/ClientApprovalLog');
 const Project = require('../models/Project');
 const RoleMaster = require('../models/RoleMaster');
+const InternalNotificationDispatcher = require('../utils/internalNotificationDispatcher');
 const { sendSuccess, sendError } = require('../utils/response');
 
 /**
@@ -290,6 +291,29 @@ exports.pmReview = async (req, res) => {
       changedBy: userId,
       notes: comments ? comments.trim() : `PM ${decision.toLowerCase()}d version`
     });
+
+    // Dispatch internal notification
+    if (toStatus === 'PM_APPROVED') {
+      InternalNotificationDispatcher.dispatch({
+        broadcastToRoles: ['ADMIN', 'SUPER_ADMIN'],
+        projectId: version.projectId ? version.projectId.toString() : null,
+        type: 'DRAWING_PENDING_ADMIN_REVIEW',
+        title: 'Drawing Pending Admin Review',
+        message: `Drawing version v${version.versionNumber} approved by PM. Requires Admin handoff review.`,
+        deepLink: `drawing/${version.drawingId}`,
+        refId: version._id
+      }).catch(err => console.error('Notification dispatch error:', err));
+    } else if (toStatus === 'PM_REJECTED' && version.uploadedBy) {
+      InternalNotificationDispatcher.dispatch({
+        userIds: [version.uploadedBy.toString()],
+        projectId: version.projectId ? version.projectId.toString() : null,
+        type: 'DRAWING_REJECTED_INTERNAL',
+        title: 'Drawing Version Rejected by PM',
+        message: `Drawing version v${version.versionNumber} rejected by PM: ${comments || 'Changes required.'}`,
+        deepLink: `drawing/${version.drawingId}`,
+        refId: version._id
+      }).catch(err => console.error('Notification dispatch error:', err));
+    }
 
     return sendSuccess(res, 200, `PM review completed: ${toStatus}`, { version });
   } catch (error) {

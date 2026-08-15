@@ -5382,6 +5382,90 @@ const swaggerDefinition = {
           200: { description: 'Scheduled reports retrieved' }
         }
       }
+    },
+    '/notifications/my': {
+      get: {
+        tags: ['ERP Module 9 - Notification System (Internal)'],
+        summary: 'Get calling employee In-App notification list (Notification Center)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Employee notifications retrieved' }
+        }
+      }
+    },
+    '/notifications/unread-count': {
+      get: {
+        tags: ['ERP Module 9 - Notification System (Internal)'],
+        summary: 'Get count of unread notifications',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Unread count retrieved' }
+        }
+      }
+    },
+    '/notifications/mark-all-read': {
+      put: {
+        tags: ['ERP Module 9 - Notification System (Internal)'],
+        summary: 'Mark all employee notifications as read',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'All notifications marked as read' }
+        }
+      }
+    },
+    '/notifications/{id}/read': {
+      put: {
+        tags: ['ERP Module 9 - Notification System (Internal)'],
+        summary: 'Mark single notification as read',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Notification marked as read' }
+        }
+      }
+    },
+    '/notifications/preferences': {
+      get: {
+        tags: ['ERP Module 9 - Notification System (Internal)'],
+        summary: 'Get employee notification channel preferences',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Preferences retrieved' }
+        },
+        put: {
+          tags: ['ERP Module 9 - Notification System (Internal)'],
+          summary: 'Update employee notification channel preferences',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Preferences updated' }
+          }
+        }
+      }
+    },
+    '/notifications/register-device': {
+      post: {
+        tags: ['ERP Module 9 - Notification System (Internal)'],
+        summary: 'Register employee push device token',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Device token registered' }
+        }
+      }
+    },
+    '/notifications/{notificationId}/delivery-log': {
+      get: {
+        tags: ['ERP Module 9 - Notification System (Internal)'],
+        summary: 'Admin delivery log debugging utility',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'notificationId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Delivery log retrieved' }
+        }
+      }
     }
   }
 };

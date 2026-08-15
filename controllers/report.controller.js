@@ -12,6 +12,7 @@ const Attendance = require('../models/Attendance');
 const Client = require('../models/Client');
 const DocumentAccessLog = require('../models/DocumentAccessLog');
 const RoleMaster = require('../models/RoleMaster');
+const InternalNotificationDispatcher = require('../utils/internalNotificationDispatcher');
 
 const { getReportPath, safeResolvePath } = require('../utils/storagePathResolver');
 const { generateReportPDF } = require('../utils/reportPdfGenerator');
@@ -441,6 +442,15 @@ exports.generateReport = async (req, res) => {
           reportRecord.filePath = pathInfo.relativePath;
           reportRecord.completedAt = new Date();
           await reportRecord.save();
+
+          InternalNotificationDispatcher.dispatch({
+            userIds: [reportRecord.requestedBy.toString()],
+            type: 'REPORT_READY',
+            title: 'Report Ready for Download',
+            message: `Your requested ${uppercaseType} report (${uppercaseFormat}) is ready for download.`,
+            deepLink: `reports/${reportRecord._id}/download`,
+            refId: reportRecord._id
+          }).catch(err => console.error('Report ready notification dispatch error:', err));
         } catch (bgErr) {
           console.error(`Background report generation failed for ID ${reportRecord._id}:`, bgErr);
           reportRecord.status = 'FAILED';
