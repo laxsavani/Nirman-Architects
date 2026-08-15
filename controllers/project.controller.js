@@ -34,6 +34,18 @@ function recalculateProgress(project) {
   project.progressPercentage = Math.round((completedCount / project.milestones.length) * 100);
 }
 
+async function getUserRoleCode(user) {
+  if (!user) return '';
+  if (user.roleId && typeof user.roleId === 'object' && user.roleId.roleCode) {
+    return user.roleId.roleCode;
+  }
+  if (user.roleId) {
+    const role = await RoleMaster.findById(user.roleId);
+    return role ? role.roleCode : '';
+  }
+  return '';
+}
+
 /**
  * Helper to check role-scoped access for non-admin users.
  */
@@ -789,5 +801,71 @@ exports.getProgressBreakdown = async (req, res) => {
   } catch (error) {
     console.error('Error fetching progress breakdown:', error);
     return sendError(res, 500, error.message || 'Failed to retrieve progress breakdown.');
+  }
+};
+
+/**
+ * DELETE /api/projects/:id
+ * Cascading Soft Delete (Admin / Super Admin only)
+ */
+exports.deleteProject = async (req, res) => {
+  try {
+    const roleCode = await getUserRoleCode(req.user);
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(roleCode)) {
+      return sendError(res, 403, 'Access denied. Admin or Super Admin privileges required to delete project.');
+    }
+
+    const { id } = req.params;
+    const userId = req.user ? (req.user._id || req.user.id) : null;
+
+    const project = await Project.findById(id);
+    if (!project || !project.isActive) {
+      return sendError(res, 404, 'Project not found.');
+    }
+
+    // 1. Soft delete project
+    project.isActive = false;
+    const fromStatus = project.status;
+    project.status = 'Archived';
+
+    // 2. Stamp unassignedAt on team members
+    const removedTeamMembersCount = Array.isArray(project.teamAssignments) ? project.teamAssignments.length : 0;
+    if (Array.isArray(project.teamAssignments)) {
+      project.teamAssignments.forEach(t => {
+        t.unassignedAt = new Date();
+      });
+    }
+
+    await project.save();
+
+    // 3. Cascading soft-delete to linked tasks
+    const taskResult = await Task.updateMany(
+      { projectId: id, isActive: true },
+      { isActive: false }
+    );
+
+    // 4. Log to ProjectStatusHistory
+    if (userId) {
+      await ProjectStatusHistory.create({
+        projectId: id,
+        fromStatus,
+        toStatus: 'Archived',
+        changedBy: userId,
+        notes: 'Project deleted (cascading soft-delete)'
+      });
+    }
+
+    return sendSuccess(res, 200, 'Project and linked tasks deleted successfully.', {
+      deletedProject: {
+        id: project._id,
+        projectName: project.projectName || project.name,
+        status: project.status
+      },
+      cascadedTasksCount: taskResult.modifiedCount || 0,
+      removedTeamMembersCount
+    });
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    return sendError(res, 500, error.message || 'Failed to delete project.');
   }
 };

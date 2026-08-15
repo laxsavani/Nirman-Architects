@@ -11,6 +11,7 @@ router.post('/create', roleMiddleware(['PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN'
 router.get('/', projectController.getProjects);
 router.get('/:id', projectController.getProjectById);
 router.put('/:id', roleMiddleware(['PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN']), projectController.updateProject);
+router.delete('/:id', roleMiddleware(['ADMIN', 'SUPER_ADMIN']), projectController.deleteProject);
 
 // Status Management & Audit History
 router.put('/:id/update-status', roleMiddleware(['PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN']), projectController.updateStatus);

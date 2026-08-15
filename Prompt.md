@@ -1270,7 +1270,43 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 304 API ENDPOINTS BY MODULE
+## 34. ADD-ON CHANGE REQUEST APIs (FINAL 7 ITEMS)
+
+### 34.1 `GET /api/tasks/:id/schedule-comparison`
+- **Description**: Compares planned schedule (`startDate`, `endDate`, `totalDays`) vs actual execution timeline (`actualStartTime`, `completionTime`, `actualTotalDays`) and returns variance.
+- **Auth**: Authenticated Employee (`authMiddleware`).
+
+### 34.2 `POST /api/internal-tickets/create`, `GET /my`, `GET /all`, `GET /:id`
+- **Description**: Internal employee/admin support ticket creation, personal list, admin queue list, and detail view.
+- **Auth**: Auth Employee (`/create`, `/my`, `/:id`). Admin/Super Admin/HR (`/all`).
+
+### 34.3 `POST /api/internal-tickets/:id/respond`, `PUT /status`, `PUT /assign`, `POST /reopen`, `POST /cancel`
+- **Description**: Internal ticket response thread, status updates, staff assignment, owner reopening, and cancellation.
+- **Auth**: Auth Employee (Owner/Assigned/Admin).
+
+### 34.4 `PUT /api/leave/:id/update`
+- **Description**: Updates leave request dates/reason (editable ONLY while status is `PENDING`).
+- **Auth**: Request Owner (`userId === req.user.id`).
+
+### 34.5 `DELETE /api/projects/:id`
+- **Description**: Atomic cascading soft-delete of project, soft-deleting linked tasks and marking team assignments as unassigned.
+- **Auth**: Admin / Super Admin (`authMiddleware`).
+
+### 34.6 `PUT /api/drawings/:id` & `DELETE /api/drawings/:id`
+- **Description**: Updates drawing metadata (`drawingName`, `categoryId`). Soft-deletes drawing (requires `forceDelete=true` if visible to client).
+- **Auth**: Update: Architect/PM/Admin. Delete: PM/Admin/Super Admin.
+
+### 34.7 `GET /api/departments`, `PUT /api/departments/:id`, `DELETE /api/departments/:id`
+- **Description**: List departments (`includeInactive` support), rename department, and soft-delete department with active reference count.
+- **Auth**: Read: Auth Employee. Write/Delete: Admin / Super Admin.
+
+### 34.8 `PUT /api/client/feedback/:id/update` & `PUT /api/feedback-category/:id/update`
+- **Description**: Client update own feedback (30-day grace period, sets `wasEdited: true`). Admin update feedback category.
+- **Auth**: Feedback: Client Contact. Category: Admin/Super Admin.
+
+---
+
+## SUMMARY OF ALL 320 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -1578,3 +1614,19 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 302 | `GET /api/admin-dashboard/project-health/:projectId` | Admin / Super Admin | ERP 10 - Single Project Composite Health Score Deep-Dive |
 | 303 | `POST /api/admin-dashboard/refresh-snapshot` | Admin / Super Admin | ERP 10 - Refresh Dashboard Metrics Snapshot Cache |
 | 304 | `GET /api/project-health-config`, `PUT` | Read: Admin / Write: Super Admin | ERP 10 - Dynamic Project Health Weights CRUD |
+| 305 | `GET /api/tasks/:id/schedule-comparison` | Auth Employee | Add-On 1 - Task Schedule Comparison API |
+| 306 | `POST /api/internal-tickets/create` | Auth Employee | Add-On 2 - Raise Internal Support Ticket |
+| 307 | `GET /api/internal-tickets/my` | Auth Employee | Add-On 2 - Employee Personal Internal Tickets |
+| 308 | `GET /api/internal-tickets/all` | HR / Admin / Super Admin | Add-On 2 - All Internal Support Tickets Queue |
+| 309 | `GET /api/internal-tickets/:id` | Owner / Assigned / Admin | Add-On 2 - Internal Ticket Detail & Thread |
+| 310 | `POST /api/internal-tickets/:id/respond` | Owner / Assigned / Admin | Add-On 2 - Respond to Internal Support Ticket |
+| 311 | `PUT /api/internal-tickets/:id/status` | Assigned / Admin | Add-On 2 - Update Internal Ticket Status |
+| 312 | `PUT /api/internal-tickets/:id/assign` | HR / Admin / Super Admin | Add-On 2 - Assign Internal Ticket to Employee |
+| 313 | `POST /api/internal-tickets/:id/reopen` | Ticket Owner | Add-On 2 - Reopen Resolved Internal Ticket |
+| 314 | `POST /api/internal-tickets/:id/cancel` | Ticket Owner | Add-On 2 - Cancel Open Internal Ticket |
+| 315 | `PUT /api/leave/:id/update` | Request Owner | Add-On 3 - Update Pending Leave Request |
+| 316 | `DELETE /api/projects/:id` | Admin / Super Admin | Add-On 4 - Project Cascading Soft-Delete API |
+| 317 | `PUT /api/drawings/:id` | Architect / PM / Admin | Add-On 5 - Update Drawing Metadata API |
+| 318 | `DELETE /api/drawings/:id` | PM / Admin / Super Admin | Add-On 5 - Drawing Soft-Delete (Client-Visibility Guarded) |
+| 319 | `GET /api/departments`, `PUT`, `DELETE` | Read: Employee / Write: Admin | Add-On 6 - Department List, Update & Delete APIs |
+| 320 | `PUT /api/client/feedback/:id/update` | Client Contact | Add-On 7 - Update Own Submitted Feedback (30-day window) |

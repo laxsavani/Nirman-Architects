@@ -109,12 +109,26 @@ exports.createTask = async (req, res) => {
       departmentId,
       assignedEmployee,
       estimatedTime,
+      startDate,
+      endDate,
       deadline,
       dependsOn
     } = req.body;
 
     if (!projectId || !taskName || !taskName.trim() || !assignedEmployee) {
       return sendError(res, 400, 'projectId, taskName, and assignedEmployee are required.');
+    }
+
+    let parsedStartDate = startDate ? new Date(startDate) : null;
+    let parsedEndDate = endDate ? new Date(endDate) : null;
+    let computedTotalDays = null;
+
+    if (parsedStartDate && parsedEndDate) {
+      if (parsedEndDate < parsedStartDate) {
+        return sendError(res, 400, 'endDate must be greater than or equal to startDate.');
+      }
+      const diffTime = Math.abs(parsedEndDate - parsedStartDate);
+      computedTotalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     }
 
     const project = await Project.findById(projectId);
@@ -149,6 +163,9 @@ exports.createTask = async (req, res) => {
       departmentId: departmentId || null,
       assignedEmployee,
       estimatedTime: estimatedTime ? Number(estimatedTime) : null,
+      startDate: parsedStartDate,
+      endDate: parsedEndDate,
+      totalDays: computedTotalDays,
       deadline: deadline ? new Date(deadline) : null,
       dependsOn: validatedDependsOn,
       status: 'Pending',
@@ -270,7 +287,7 @@ exports.getTaskById = async (req, res) => {
 exports.updateTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const { taskName, description, priority, departmentId, estimatedTime, deadline } = req.body;
+    const { taskName, description, priority, departmentId, estimatedTime, startDate, endDate, deadline } = req.body;
 
     const task = await Task.findById(id);
     if (!task || !task.isActive) {
@@ -282,6 +299,20 @@ exports.updateTask = async (req, res) => {
     if (priority) task.priority = priority;
     if (departmentId !== undefined) task.departmentId = departmentId || null;
     if (estimatedTime !== undefined) task.estimatedTime = estimatedTime ? Number(estimatedTime) : null;
+    
+    if (startDate !== undefined) task.startDate = startDate ? new Date(startDate) : null;
+    if (endDate !== undefined) task.endDate = endDate ? new Date(endDate) : null;
+
+    if (task.startDate && task.endDate) {
+      if (task.endDate < task.startDate) {
+        return sendError(res, 400, 'endDate must be greater than or equal to startDate.');
+      }
+      const diffTime = Math.abs(task.endDate - task.startDate);
+      task.totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    } else if (!task.startDate || !task.endDate) {
+      task.totalDays = null;
+    }
+
     if (deadline !== undefined) task.deadline = deadline ? new Date(deadline) : null;
 
     if (task.deadline && task.status !== 'Completed') {
@@ -929,5 +960,62 @@ exports.getProjectTasksBreakdown = async (req, res) => {
   } catch (error) {
     console.error('Error fetching project tasks breakdown:', error);
     return sendError(res, 500, error.message || 'Failed to retrieve tasks breakdown.');
+  }
+};
+
+/**
+ * GET /api/tasks/:id/schedule-comparison
+ * Compare planned schedule vs actual execution timeline
+ */
+exports.getTaskScheduleComparison = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findById(id)
+      .populate('projectId', 'projectName name')
+      .populate('assignedEmployee', 'name email designation');
+
+    if (!task || !task.isActive) {
+      return sendError(res, 404, 'Task not found.');
+    }
+
+    const plannedStartDate = task.startDate;
+    const plannedEndDate = task.endDate;
+    const plannedTotalDays = task.totalDays;
+
+    const actualStartTime = task.actualStartTime;
+    const actualCompletionTime = task.completionTime;
+
+    let actualTotalDays = null;
+    if (actualStartTime) {
+      const end = actualCompletionTime || new Date();
+      const diffTime = Math.abs(end - actualStartTime);
+      actualTotalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    let varianceInDays = null;
+    if (plannedTotalDays !== null && actualTotalDays !== null) {
+      varianceInDays = actualTotalDays - plannedTotalDays;
+    }
+
+    return sendSuccess(res, 200, 'Task schedule comparison retrieved successfully.', {
+      taskId: task._id,
+      taskName: task.taskName,
+      status: task.status,
+      plannedSchedule: {
+        startDate: plannedStartDate,
+        endDate: plannedEndDate,
+        totalDays: plannedTotalDays
+      },
+      actualExecution: {
+        startTime: actualStartTime,
+        completionTime: actualCompletionTime,
+        totalDays: actualTotalDays
+      },
+      varianceInDays,
+      isDelayed: task.isDelayed
+    });
+  } catch (error) {
+    console.error('Error fetching schedule comparison:', error);
+    return sendError(res, 500, error.message || 'Failed to retrieve schedule comparison.');
   }
 };

@@ -13,6 +13,9 @@ const taskSchema = new mongoose.Schema({
   departmentId:      { type: mongoose.Schema.Types.ObjectId, ref: 'Department', default: null },
   assignedEmployee:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   estimatedTime:     { type: Number, default: null }, // hours
+  startDate:         { type: Date, default: null },   // Planned start date
+  endDate:           { type: Date, default: null },   // Planned end date
+  totalDays:         { type: Number, default: null }, // Planned duration in calendar days (server-computed)
   deadline:          { type: Date, default: null },
   attachments:       [{ type: String }],
   checklist:         [checklistItemSchema],

@@ -5567,6 +5567,166 @@ const swaggerDefinition = {
           200: { description: 'Health config updated' }
         }
       }
+    },
+    '/tasks/{id}/schedule-comparison': {
+      get: {
+        tags: ['ERP Module 2 - Task Management'],
+        summary: 'Compare planned schedule vs actual execution timeline',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Schedule comparison retrieved' }
+        }
+      }
+    },
+    '/internal-tickets/create': {
+      post: {
+        tags: ['Internal Employee Support Tickets'],
+        summary: 'Raise an internal support ticket',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          201: { description: 'Internal ticket created' }
+        }
+      }
+    },
+    '/internal-tickets/my': {
+      get: {
+        tags: ['Internal Employee Support Tickets'],
+        summary: 'Get calling employee personal internal tickets',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'My internal tickets retrieved' }
+        }
+      }
+    },
+    '/internal-tickets/all': {
+      get: {
+        tags: ['Internal Employee Support Tickets'],
+        summary: 'Filterable list of all internal tickets (HR/Admin/Super Admin)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'All internal tickets retrieved' }
+        }
+      }
+    },
+    '/internal-tickets/{id}': {
+      get: {
+        tags: ['Internal Employee Support Tickets'],
+        summary: 'Get internal ticket detail with response thread',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Internal ticket detail retrieved' }
+        }
+      }
+    },
+    '/internal-tickets/{id}/respond': {
+      post: {
+        tags: ['Internal Employee Support Tickets'],
+        summary: 'Post response message to internal ticket thread',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          201: { description: 'Response posted' }
+        }
+      }
+    },
+    '/internal-tickets/{id}/status': {
+      put: {
+        tags: ['Internal Employee Support Tickets'],
+        summary: 'Update internal ticket status',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Ticket status updated' }
+        }
+      }
+    },
+    '/internal-tickets/{id}/assign': {
+      put: {
+        tags: ['Internal Employee Support Tickets'],
+        summary: 'Assign internal ticket to employee (HR/Admin/Super Admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Ticket assigned' }
+        }
+      }
+    },
+    '/internal-tickets/{id}/reopen': {
+      post: {
+        tags: ['Internal Employee Support Tickets'],
+        summary: 'Reopen resolved internal ticket (Owner only)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Ticket reopened' }
+        }
+      }
+    },
+    '/internal-tickets/{id}/cancel': {
+      post: {
+        tags: ['Internal Employee Support Tickets'],
+        summary: 'Cancel internal ticket (Owner only while OPEN/IN_PROGRESS)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Ticket cancelled' }
+        }
+      }
+    },
+    '/leave/{id}/update': {
+      put: {
+        tags: ['HRM Module 3 - Leave Management'],
+        summary: 'Update leave request dates/reason (Editable while PENDING only)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Leave request updated' }
+        }
+      }
+    },
+    '/client/feedback/{id}/update': {
+      put: {
+        tags: ['CRM Module 9 - Feedback & Satisfaction'],
+        summary: 'Update own submitted feedback (self-scoped, 30-day grace period)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Feedback updated' }
+        }
+      }
+    },
+    '/feedback-category/{id}/update': {
+      put: {
+        tags: ['CRM Module 9 - Feedback & Satisfaction'],
+        summary: 'Update/Rename feedback category (Admin/Super Admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Feedback category updated' }
+        }
+      }
     }
   }
 };

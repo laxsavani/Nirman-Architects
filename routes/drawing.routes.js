@@ -10,9 +10,11 @@ router.use(authMiddleware);
 router.post('/create', roleMiddleware(['ARCHITECT', 'DESIGNER', 'PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN']), drawingController.createDrawing);
 router.post('/:drawingId/versions/upload', roleMiddleware(['ARCHITECT', 'DESIGNER', 'PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN']), drawingController.uploadVersion);
 
-// Drawing Lists, Detail & Version History
+// Drawing Lists, Detail, Update & Delete
 router.get('/', drawingController.getDrawings);
 router.get('/:id', drawingController.getDrawingById);
+router.put('/:id', roleMiddleware(['ARCHITECT', 'DESIGNER', 'PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN']), drawingController.updateDrawing);
+router.delete('/:id', roleMiddleware(['PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN']), drawingController.deleteDrawing);
 router.get('/:id/versions', drawingController.getDrawingVersions);
 router.get('/:id/compare', drawingController.compareVersions);
 

@@ -417,3 +417,96 @@ exports.getCompanyLeaves = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Update Leave Request (Editable ONLY while PENDING)
+ */
+exports.updateLeaveRequest = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = (req.user && (req.user._id || req.user.userId || req.user.id)).toString();
+    const { leaveTypeId, fromDate, toDate, reason } = req.body;
+
+    const leaveRequest = await LeaveRequest.findById(id);
+    if (!leaveRequest) {
+      return sendError(res, 404, 'Leave request not found.');
+    }
+
+    if (leaveRequest.userId.toString() !== userId) {
+      return sendError(res, 403, 'Access denied. You can only update your own leave requests.');
+    }
+
+    if (leaveRequest.status !== 'PENDING') {
+      return sendError(res, 400, `This leave request has already been ${leaveRequest.status.toLowerCase()} and can no longer be edited.`);
+    }
+
+    const newLeaveTypeId = leaveTypeId || leaveRequest.leaveTypeId;
+    const start = fromDate ? new Date(fromDate) : new Date(leaveRequest.fromDate);
+    const end = toDate ? new Date(toDate) : new Date(leaveRequest.toDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return sendError(res, 400, 'Invalid date format.');
+    }
+
+    if (start > end) {
+      return sendError(res, 400, 'fromDate cannot be after toDate.');
+    }
+
+    const leaveType = await LeaveType.findById(newLeaveTypeId);
+    if (!leaveType || !leaveType.isActive) {
+      return sendError(res, 400, 'Invalid or inactive leave type.');
+    }
+
+    // Overlapping date check excluding current request
+    const overlappingRequest = await LeaveRequest.findOne({
+      _id: { $ne: id },
+      userId,
+      status: { $in: ['PENDING', 'APPROVED'] },
+      fromDate: { $lte: end },
+      toDate: { $gte: start }
+    });
+
+    if (overlappingRequest) {
+      return sendError(res, 400, 'You already have another active or pending leave request for the specified dates.');
+    }
+
+    const totalDays = calculateTotalDays(start, end);
+    const reqYear = start.getFullYear();
+
+    // Balance check for paid leaves
+    if (leaveType.isPaid) {
+      let balance = await LeaveBalance.findOne({
+        userId,
+        leaveTypeId: leaveType._id,
+        year: reqYear
+      });
+
+      if (!balance) {
+        balance = await LeaveBalance.create({
+          userId,
+          leaveTypeId: leaveType._id,
+          year: reqYear,
+          allocatedDays: leaveType.defaultQuotaPerYear || 0,
+          usedDays: 0
+        });
+      }
+
+      const remaining = balance.allocatedDays - balance.usedDays;
+      if (remaining < totalDays) {
+        return sendError(res, 400, `Insufficient leave balance for ${leaveType.name}. Remaining: ${remaining}, Requested: ${totalDays}`);
+      }
+    }
+
+    leaveRequest.leaveTypeId = leaveType._id;
+    leaveRequest.fromDate = start;
+    leaveRequest.toDate = end;
+    leaveRequest.totalDays = totalDays;
+    if (reason !== undefined) leaveRequest.reason = reason ? reason.trim() : '';
+
+    await leaveRequest.save();
+
+    return sendSuccess(res, 200, 'Leave request updated successfully.', leaveRequest);
+  } catch (error) {
+    next(error);
+  }
+};

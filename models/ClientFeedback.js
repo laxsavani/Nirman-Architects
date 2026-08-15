@@ -51,6 +51,14 @@ const clientFeedbackSchema = new mongoose.Schema({
     default: null,
     trim: true
   },
+  wasEdited: {
+    type: Boolean,
+    default: false
+  },
+  lastEditedAt: {
+    type: Date,
+    default: null
+  },
   submittedAt: {
     type: Date,
     default: Date.now

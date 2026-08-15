@@ -614,3 +614,93 @@ exports.getProjectDrawingsBreakdown = async (req, res) => {
     return sendError(res, 500, error.message || 'Failed to retrieve drawings breakdown.');
   }
 };
+
+/**
+ * PUT /api/drawings/:id
+ * Update Drawing Metadata
+ */
+exports.updateDrawing = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { drawingName, categoryId, categoryName } = req.body;
+
+    const drawing = await Drawing.findById(id);
+    if (!drawing || !drawing.isActive) {
+      return sendError(res, 404, 'Drawing not found.');
+    }
+
+    if (drawingName && drawingName.trim()) {
+      drawing.drawingName = drawingName.trim();
+    }
+
+    if (categoryId) {
+      const cat = await DrawingCategory.findById(categoryId);
+      if (cat) {
+        drawing.categoryId = cat._id;
+        drawing.categoryName = cat.name;
+      }
+    } else if (categoryName) {
+      drawing.categoryName = categoryName.trim();
+    }
+
+    await drawing.save();
+
+    const populated = await Drawing.findById(id)
+      .populate('categoryId', 'name')
+      .populate('projectId', 'projectName name');
+
+    return sendSuccess(res, 200, 'Drawing metadata updated successfully.', { drawing: populated });
+  } catch (error) {
+    console.error('Error updating drawing metadata:', error);
+    return sendError(res, 500, error.message || 'Failed to update drawing metadata.');
+  }
+};
+
+/**
+ * DELETE /api/drawings/:id
+ * Soft Delete Drawing (PM, Admin, Super Admin)
+ */
+exports.deleteDrawing = async (req, res) => {
+  try {
+    const roleCode = await getUserRoleCode(req.user);
+    if (!['PROJECT_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(roleCode)) {
+      return sendError(res, 403, 'Access denied. PM, Admin, or Super Admin privileges required to delete drawing.');
+    }
+
+    const { id } = req.params;
+    const forceDelete = req.query.forceDelete === 'true' || req.body.forceDelete === true;
+
+    const drawing = await Drawing.findById(id);
+    if (!drawing || !drawing.isActive) {
+      return sendError(res, 404, 'Drawing not found.');
+    }
+
+    const wasVisibleToClient = drawing.visibleToClient === true;
+
+    if (wasVisibleToClient && !forceDelete) {
+      return res.status(400).json({
+        success: false,
+        requiresForceDelete: true,
+        message: 'Drawing is currently visible to client portal contacts. Pass forceDelete=true parameter to confirm soft-deletion.',
+        drawingId: id,
+        drawingName: drawing.drawingName,
+        visibleToClient: true
+      });
+    }
+
+    drawing.isActive = false;
+    await drawing.save();
+
+    return sendSuccess(res, 200, 'Drawing deleted successfully.', {
+      deletedDrawing: {
+        id: drawing._id,
+        drawingName: drawing.drawingName,
+        projectId: drawing.projectId
+      },
+      wasVisibleToClient
+    });
+  } catch (error) {
+    console.error('Error deleting drawing:', error);
+    return sendError(res, 500, error.message || 'Failed to delete drawing.');
+  }
+};

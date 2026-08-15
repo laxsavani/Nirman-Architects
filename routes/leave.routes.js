@@ -9,6 +9,7 @@ router.use(authMiddleware);
 // Leave Requests (Employee & All Roles)
 router.post('/apply', leaveController.applyLeave);
 router.get('/my', leaveController.getMyLeaves);
+router.put('/:id/update', leaveController.updateLeaveRequest);
 router.post('/cancel', leaveController.cancelLeave);
 
 // Leave Management & Approvals (Super Admin / HR)

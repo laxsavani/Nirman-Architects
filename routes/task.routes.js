@@ -37,7 +37,8 @@ router.delete('/:id/checklist/:itemId', taskController.deleteChecklistItem);
 router.post('/:id/comments/add', taskController.addComment);
 router.get('/:id/comments', taskController.getComments);
 
-// Time Analysis
+// Time & Schedule Analysis
 router.get('/:id/time-analysis', taskController.getTimeAnalysis);
+router.get('/:id/schedule-comparison', taskController.getTaskScheduleComparison);
 
 module.exports = router;

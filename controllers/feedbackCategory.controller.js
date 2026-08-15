@@ -73,3 +73,40 @@ exports.getActiveCategories = async (req, res) => {
     return sendError(res, 500, error.message || 'Failed to retrieve feedback categories.');
   }
 };
+
+/**
+ * PUT /api/feedback-category/:id/update
+ * Update/Rename Feedback Category (Super Admin / Admin)
+ */
+exports.updateCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    if (!name || !name.trim()) {
+      return sendError(res, 400, 'Category name is required.');
+    }
+
+    const cleanName = name.trim();
+    const category = await FeedbackCategory.findById(id);
+    if (!category) {
+      return sendError(res, 404, 'Feedback category not found.');
+    }
+
+    const duplicate = await FeedbackCategory.findOne({
+      _id: { $ne: id },
+      name: new RegExp(`^${cleanName}$`, 'i')
+    });
+    if (duplicate) {
+      return sendError(res, 400, `Another feedback category named '${cleanName}' already exists.`);
+    }
+
+    category.name = cleanName;
+    await category.save();
+
+    return sendSuccess(res, 200, 'Feedback category updated successfully.', { category });
+  } catch (error) {
+    console.error('Error updating feedback category:', error);
+    return sendError(res, 500, error.message || 'Failed to update feedback category.');
+  }
+};

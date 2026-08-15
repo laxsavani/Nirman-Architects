@@ -28,6 +28,7 @@ const reportRoutes = require('./report.routes');
 const internalNotificationRoutes = require('./internalNotification.routes');
 const adminDashboardRoutes = require('./adminDashboard.routes');
 const projectHealthConfigRoutes = require('./projectHealthConfig.routes');
+const internalTicketRoutes = require('./internalTicket.routes');
 
 // Health Check Endpoint
 router.get('/health', (req, res) => {
@@ -101,6 +102,9 @@ router.use('/notifications', internalNotificationRoutes);
 // Admin Dashboard Routes (ERP Module 10 — Capstone)
 router.use('/admin-dashboard', adminDashboardRoutes);
 router.use('/project-health-config', projectHealthConfigRoutes);
+
+// Internal Employee Support Ticket Routes
+router.use('/internal-tickets', internalTicketRoutes);
 
 const clientTicketRoutes = require('./clientTicket.routes');
 const ticketRoutes = require('./ticket.routes');

@@ -6,10 +6,13 @@ const roleMiddleware = require('../middlewares/role.middleware');
 
 router.use(authMiddleware);
 
-// Get Active Departments (All Employees)
+// Get Departments (All Employees)
+router.get('/', departmentController.getDepartments);
 router.get('/active', departmentController.getActiveDepartments);
 
-// Create Department (Admin & Super Admin)
+// Create, Update & Delete Department (Admin & Super Admin)
 router.post('/create', roleMiddleware(['ADMIN', 'SUPER_ADMIN']), departmentController.createDepartment);
+router.put('/:id', roleMiddleware(['ADMIN', 'SUPER_ADMIN']), departmentController.updateDepartment);
+router.delete('/:id', roleMiddleware(['ADMIN', 'SUPER_ADMIN']), departmentController.deleteDepartment);
 
 module.exports = router;

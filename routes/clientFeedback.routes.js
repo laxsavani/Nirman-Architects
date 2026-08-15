@@ -19,8 +19,9 @@ router.post('/:promptId/submit', clientFeedbackController.submitFeedback);
 // Skip a pending prompt permanently for this trigger event
 router.post('/:promptId/skip', clientFeedbackController.skipPrompt);
 
-// Get calling contact's own feedback history
+// Get calling contact's own feedback history & update feedback
 router.get('/my', clientFeedbackController.getMyFeedbackHistory);
+router.put('/:id/update', clientFeedbackController.updateFeedback);
 
 // Get all feedback for a project submitted by any contact under client account
 router.get('/project/:projectId', clientFeedbackController.getProjectClientFeedback);

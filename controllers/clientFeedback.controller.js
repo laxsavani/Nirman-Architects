@@ -220,3 +220,73 @@ exports.getProjectClientFeedback = async (req, res) => {
     return sendError(res, 500, error.message || 'Failed to retrieve project feedback.');
   }
 };
+
+/**
+ * PUT /api/client/feedback/:id/update
+ * Update own submitted feedback (self-scoped, 30-day grace period)
+ */
+exports.updateFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { overallRating, categoryRatings, comments } = req.body;
+    const { contactId } = req.clientContact;
+
+    const feedback = await ClientFeedback.findById(id);
+    if (!feedback) {
+      return sendError(res, 404, 'Feedback not found.');
+    }
+
+    if (feedback.contactId.toString() !== contactId.toString()) {
+      return sendError(res, 403, 'Access denied. You can only edit your own submitted feedback.');
+    }
+
+    // 30-day grace period check
+    const GRACE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
+    const submissionTime = new Date(feedback.submittedAt || feedback.createdAt).getTime();
+    if (Date.now() - submissionTime > GRACE_PERIOD_MS) {
+      return sendError(res, 400, 'Feedback editing window has expired (30-day limit).');
+    }
+
+    if (overallRating !== undefined) {
+      const ratingNum = Number(overallRating);
+      if (isNaN(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+        return sendError(res, 400, 'overallRating must be an integer between 1 and 5.');
+      }
+      feedback.overallRating = ratingNum;
+    }
+
+    if (Array.isArray(categoryRatings)) {
+      const processedCategoryRatings = [];
+      for (const cat of categoryRatings) {
+        if (cat && cat.categoryId && cat.rating) {
+          const catRating = Number(cat.rating);
+          if (catRating >= 1 && catRating <= 5) {
+            processedCategoryRatings.push({
+              categoryId: cat.categoryId,
+              rating: catRating
+            });
+          }
+        }
+      }
+      feedback.categoryRatings = processedCategoryRatings;
+    }
+
+    if (comments !== undefined) {
+      feedback.comments = comments ? comments.trim() : null;
+    }
+
+    feedback.wasEdited = true;
+    feedback.lastEditedAt = new Date();
+
+    await feedback.save();
+
+    const populated = await ClientFeedback.findById(id)
+      .populate('projectId', 'name projectNumber')
+      .populate('categoryRatings.categoryId', 'name');
+
+    return sendSuccess(res, 200, 'Feedback updated successfully.', { feedback: populated });
+  } catch (error) {
+    console.error('Error updating client feedback:', error);
+    return sendError(res, 500, error.message || 'Failed to update feedback.');
+  }
+};

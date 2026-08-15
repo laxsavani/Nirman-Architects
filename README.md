@@ -201,6 +201,14 @@ node agent.js
 - **Dynamic Composite Project Health Score**: Weighted health calculation (`projectHealthCalculator`) evaluating Timeline adherence, Drawing velocity, Team productivity, and Client engagement into numerical scores (0–100) and status classifications (`EXCELLENT`, `GOOD`, `AT_RISK`, `CRITICAL`), backed by dynamic `ProjectHealthConfig` weight settings (Super Admin).
 - **Real-Time Active Clock-Ins & Honest Revenue Scoping**: Active employee tracking (excluding Super Admin) with site vs office breakdown, company-wide activity feed, and honestly-scoped budgeted project value summaries (`CompanyDashboardSnapshot`).
 
+### Add-On Change Request (FINAL 7 Items)
+- **Task Schedule Fields & Comparison**: Added `startDate`, `endDate`, and server-computed `totalDays` to `Task` schema, with `GET /api/tasks/:id/schedule-comparison`.
+- **Separate Internal Support Ticket System**: Created `InternalTicket` & `InternalTicketResponse` models + `/api/internal-tickets/*` routes providing internal employees/admin a dedicated query system distinct from client tickets.
+- **Leave Request Update**: Added `PUT /api/leave/:id/update` allowing employees to update pending leave request dates/reasons (locked once approved).
+- **Project Cascading Soft-Delete**: Added `DELETE /api/projects/:id` (Admin/Super Admin only) atomically soft-deleting linked tasks and updating team assignments.
+- **Drawing & Department Management**: Added `PUT /api/drawings/:id` and `DELETE /api/drawings/:id` (client-visibility guarded), plus `GET /api/departments` (`includeInactive`), `PUT`, and `DELETE`.
+- **Feedback Editing**: Added `wasEdited`/`lastEditedAt` to `ClientFeedback` + `PUT /api/client/feedback/:id/update` (30-day window) and `PUT /api/feedback-category/:id/update`.
+
 ---
 
 ## 🗄️ Database Schemas Directory
