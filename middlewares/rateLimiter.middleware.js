@@ -2,9 +2,9 @@ const loginAttempts = new Map();
 
 /**
  * Lightweight In-Memory Rate Limiter Middleware for Auth Endpoints
- * Limits requests per IP within a window to prevent brute-force attacks.
+ * Limits requests per IP within a window (5 attempts, 15-minute lock) to prevent brute-force attacks.
  */
-module.exports = (maxRequests = 10, windowMs = 15 * 60 * 1000) => {
+module.exports = (maxRequests = 5, windowMs = 15 * 60 * 1000) => {
   return (req, res, next) => {
     const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
     const now = Date.now();
@@ -24,9 +24,10 @@ module.exports = (maxRequests = 10, windowMs = 15 * 60 * 1000) => {
     record.count += 1;
     if (record.count > maxRequests) {
       const retrySecs = Math.ceil((record.resetTime - now) / 1000);
+      const retryMins = Math.ceil(retrySecs / 60);
       return res.status(429).json({
         success: false,
-        message: `Too many login attempts from this IP. Please try again in ${retrySecs} seconds.`
+        message: `Too many login attempts (maximum ${maxRequests} allowed). Locked for 15 minutes. Please try again in ${retryMins} minute(s).`
       });
     }
 

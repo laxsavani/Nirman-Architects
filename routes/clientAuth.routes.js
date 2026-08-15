@@ -2,13 +2,14 @@ const express = require('express');
 const router = express.Router();
 const clientAuthController = require('../controllers/clientAuth.controller');
 const clientAuthMiddleware = require('../middlewares/clientAuth.middleware');
+const rateLimiter = require('../middlewares/rateLimiter.middleware');
 
 /**
  * Client Portal Authentication Routes
  */
 
 // Public Auth Endpoints
-router.post('/login', clientAuthController.login);
+router.post('/login', rateLimiter(5, 15 * 60 * 1000), clientAuthController.login);
 router.post('/forgot-password', clientAuthController.forgotPassword);
 router.post('/reset-password', clientAuthController.resetPassword);
 
