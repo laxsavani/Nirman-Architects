@@ -3995,6 +3995,17 @@ const swaggerDefinition = {
         responses: {
           200: { description: 'Project updated successfully' }
         }
+      },
+      delete: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Cascading soft-delete project and linked tasks (Admin, Super Admin only)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Project and linked tasks soft-deleted successfully' }
+        }
       }
     },
     '/projects/{id}/update-status': {
@@ -4222,6 +4233,43 @@ const swaggerDefinition = {
         security: [{ bearerAuth: [] }],
         responses: {
           200: { description: 'Active departments list' }
+        }
+      }
+    },
+    '/departments': {
+      get: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Get internal departments list (supports ?includeInactive=true)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'includeInactive', in: 'query', schema: { type: 'boolean' } }
+        ],
+        responses: {
+          200: { description: 'Departments list retrieved' }
+        }
+      }
+    },
+    '/departments/{id}': {
+      put: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Update department name (Admin, Super Admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Department updated' }
+        }
+      },
+      delete: {
+        tags: ['ERP Module 1 - Project Management'],
+        summary: 'Soft-delete department (Admin, Super Admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Department soft-deleted' }
         }
       }
     },
@@ -4643,6 +4691,29 @@ const swaggerDefinition = {
         ],
         responses: {
           200: { description: 'Drawing details and version history retrieved' }
+        }
+      },
+      put: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Update drawing metadata (drawingName, categoryId)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Drawing metadata updated' }
+        }
+      },
+      delete: {
+        tags: ['ERP Module 3 - Drawing Management System'],
+        summary: 'Soft-delete drawing (PM, Admin, Super Admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'forceDelete', in: 'query', schema: { type: 'boolean' }, description: 'Force delete if visible to client' }
+        ],
+        responses: {
+          200: { description: 'Drawing soft-deleted' }
         }
       }
     },
@@ -5454,6 +5525,16 @@ const swaggerDefinition = {
         }
       }
     },
+    '/notifications/unregister-device': {
+      delete: {
+        tags: ['ERP Module 9 - Notification System (Internal)'],
+        summary: 'Unregister employee push device token',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Device token unregistered' }
+        }
+      }
+    },
     '/notifications/{notificationId}/delivery-log': {
       get: {
         tags: ['ERP Module 9 - Notification System (Internal)'],
@@ -5570,7 +5651,7 @@ const swaggerDefinition = {
     },
     '/tasks/{id}/schedule-comparison': {
       get: {
-        tags: ['ERP Module 2 - Task Management'],
+        tags: ['ERP Module 2 - Task Management System'],
         summary: 'Compare planned schedule vs actual execution timeline',
         security: [{ bearerAuth: [] }],
         parameters: [
@@ -5691,7 +5772,7 @@ const swaggerDefinition = {
     },
     '/leave/{id}/update': {
       put: {
-        tags: ['HRM Module 3 - Leave Management'],
+        tags: ['Leave Management'],
         summary: 'Update leave request dates/reason (Editable while PENDING only)',
         security: [{ bearerAuth: [] }],
         parameters: [
@@ -5704,7 +5785,7 @@ const swaggerDefinition = {
     },
     '/client/feedback/{id}/update': {
       put: {
-        tags: ['CRM Module 9 - Feedback & Satisfaction'],
+        tags: ['CRM Module 9 - Client Feedback (Portal)'],
         summary: 'Update own submitted feedback (self-scoped, 30-day grace period)',
         security: [{ bearerAuth: [] }],
         parameters: [
@@ -5717,7 +5798,7 @@ const swaggerDefinition = {
     },
     '/feedback-category/{id}/update': {
       put: {
-        tags: ['CRM Module 9 - Feedback & Satisfaction'],
+        tags: ['CRM Module 9 - Client Feedback (Master)'],
         summary: 'Update/Rename feedback category (Admin/Super Admin)',
         security: [{ bearerAuth: [] }],
         parameters: [
