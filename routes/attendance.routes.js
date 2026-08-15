@@ -11,6 +11,11 @@ router.post('/clock-in', attendanceController.clockIn);
 router.post('/clock-out', attendanceController.clockOut);
 router.get('/today', attendanceController.getToday);
 
+// Manual self-service fallback & UI status endpoints
+router.post('/manual/clock-in', attendanceController.manualClockIn);
+router.post('/manual/clock-out', attendanceController.manualClockOut);
+router.get('/status', attendanceController.getStatus);
+
 // Event & Sync endpoints
 router.post('/event', attendanceController.handleEvent);
 router.post('/sync', attendanceController.handleSync);

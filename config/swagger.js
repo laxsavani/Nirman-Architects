@@ -921,6 +921,38 @@ const swaggerDefinition = {
         }
       }
     },
+    '/attendance/manual/clock-in': {
+      post: {
+        tags: ['Attendance Module'],
+        summary: 'Manual self-service clock in (fallback when agent is not running)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          201: { description: 'Manual clock-in recorded successfully' },
+          409: { description: 'Conflict - employee already has an active clock-in session' }
+        }
+      }
+    },
+    '/attendance/manual/clock-out': {
+      post: {
+        tags: ['Attendance Module'],
+        summary: 'Manual self-service clock out (closes active session)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Manual clock-out recorded successfully' },
+          400: { description: 'Bad Request - no active clock-in session to close' }
+        }
+      }
+    },
+    '/attendance/status': {
+      get: {
+        tags: ['Attendance Module'],
+        summary: 'Get real-time attendance status (isClockedIn, activeSession, clockInSource)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Attendance status retrieved' }
+        }
+      }
+    },
     '/attendance/event': {
       post: {
         tags: ['Attendance Module'],

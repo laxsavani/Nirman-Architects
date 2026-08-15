@@ -205,11 +205,23 @@ The application uses two distinct, non-interchangeable JWT token types:
 - **Description**: Retrieves current day's attendance status and active session info.
 - **Auth**: Internal Employee.
 
-### 4.4 `POST /api/attendance/event` (Aliases: `/heartbeat`, `/clock`)
-- **Description**: Universal event handler for Desktop Agent (clock-in, clock-out, heartbeat).
+### 4.4 `POST /api/attendance/manual/clock-in`
+- **Description**: Manual self-service clock-in for employee (fallback when desktop agent isn't running). Enforces SINGLE active session row rule (returns `409 Conflict` if already clocked in).
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 4.5 `POST /api/attendance/manual/clock-out`
+- **Description**: Manual self-service clock-out for employee. Updates the single existing active session document in place (`clockOutSource: 'MANUAL'`).
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 4.6 `GET /api/attendance/status`
+- **Description**: Retrieves real-time attendance status (`isClockedIn`, `activeSession`, `clockInSource`) for Web/Mobile UI button states.
+- **Auth**: Internal Employee (`authMiddleware`).
+
+### 4.7 `POST /api/attendance/event` (Aliases: `/heartbeat`, `/clock`)
+- **Description**: Universal event handler for Desktop Agent (clock-in, clock-out, heartbeat). Adopts existing manual active session if present.
 - **Auth**: Internal Employee.
 
-### 4.5 `POST /api/attendance/sync`
+### 4.8 `POST /api/attendance/sync`
 - **Description**: Flushes offline attendance events from Desktop Agent's local buffer into the central Attendance collection (`isOfflineEntry: true`).
 - **Auth**: Internal Employee.
 

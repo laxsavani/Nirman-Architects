@@ -14,14 +14,20 @@ function initHeartbeatTimeoutCron() {
       const cutoffTime = new Date(Date.now() - timeoutMs);
 
       // Find open attendance sessions where lastHeartbeat is older than cutoffTime
+      // SKIP purely manual clock-in sessions that have never been adopted by an agent (deviceId is null)
       const openSessions = await Attendance.find({
         clockOutTime: null,
-        lastHeartbeat: { $lt: cutoffTime }
+        lastHeartbeat: { $lt: cutoffTime },
+        $or: [
+          { clockInSource: { $ne: 'MANUAL' } },
+          { deviceId: { $ne: null, $exists: true, $nin: ['', null] } }
+        ]
       });
 
       for (const session of openSessions) {
         const logoutTime = session.lastHeartbeat || session.clockInTime;
         session.clockOutTime = logoutTime;
+        session.clockOutSource = 'HEARTBEAT_TIMEOUT';
         session.autoClosed = true;
         session.status = 'AUTO_CLOSED';
         session.reason = 'Unexpected Shutdown / Power Failure';

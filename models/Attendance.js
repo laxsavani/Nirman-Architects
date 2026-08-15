@@ -11,6 +11,8 @@ const attendanceSchema = new mongoose.Schema({
   mode:            { type: String, enum: ['OFFICE_AUTO', 'SITE_MOBILE'], default: 'OFFICE_AUTO' },
   status:          { type: String, default: 'PRESENT', enum: ['PRESENT', 'ABSENT', 'HALF_DAY', 'LEAVE', 'OFFLINE', 'AUTO_CLOSED'] },
   reason:          { type: String, default: '' },      // E.g., "Normal Shutdown", "Unexpected Shutdown", "Power Failure"
+  clockInSource:   { type: String, enum: ['AGENT_AUTO', 'MANUAL'], default: 'AGENT_AUTO', required: true },
+  clockOutSource:  { type: String, enum: ['AGENT_AUTO', 'MANUAL', 'HEARTBEAT_TIMEOUT'], default: null },
   isOfflineEntry:  { type: Boolean, default: false }, // synced late from local JSON queue
   autoClosed:      { type: Boolean, default: false }, // closed via heartbeat-timeout cron
   lastHeartbeat:   { type: Date, default: Date.now }

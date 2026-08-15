@@ -2,19 +2,19 @@ const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 const AttendanceConfig = require('../models/AttendanceConfig');
 const AttendanceCorrectionRequest = require('../models/AttendanceCorrectionRequest');
-const UnauthorizedAttempt = require('../models/UnauthorizedAttempt');
 const HeartbeatLog = require('../models/HeartbeatLog');
 const { sendSuccess, sendError } = require('../utils/response');
 const notifyAdmins = require('../utils/notifyAdmins');
+const { getActiveSession, handleClockIn, handleClockOut } = require('../utils/attendanceGuard');
 
 /**
- * Direct Clock-In Controller
+ * Direct Clock-In Controller (Agent / System)
  * POST /api/attendance/clock-in
  */
 exports.clockIn = async (req, res, next) => {
   try {
     const userId = (req.user && (req.user.userId || req.user.id)) || req.body.employeeId || req.body.userId;
-    const { deviceId, clientTime, computerName, ip, macAddress } = req.body;
+    const { deviceId, clientTime } = req.body;
 
     if (!userId) {
       return sendError(res, 400, 'Employee/User ID is required.');
@@ -34,41 +34,26 @@ exports.clockIn = async (req, res, next) => {
       await user.save();
     }
 
-    const serverNow = new Date();
+    const { attendance, adopted } = await handleClockIn(
+      user._id,
+      'AGENT_AUTO',
+      cleanDeviceId || user.deviceId,
+      { clientTime }
+    );
 
-    // Check if there is already an open clock-in session today
-    let attendance = await Attendance.findOne({
-      userId: user._id,
-      clockOutTime: null
-    }).sort({ createdAt: -1 });
+    const statusCode = adopted ? 200 : 201;
+    const message = adopted
+      ? 'Desktop agent attached to active clock-in session.'
+      : 'Clock-in recorded successfully.';
 
-    if (attendance) {
-      attendance.lastHeartbeat = serverNow;
-      if (cleanDeviceId) attendance.deviceId = cleanDeviceId;
-      await attendance.save();
-      return sendSuccess(res, 200, 'Clock-in session already active.', attendance);
-    }
-
-    // Create new Attendance document with authoritative server clockInTime
-    attendance = new Attendance({
-      userId: user._id,
-      clockInTime: serverNow,
-      clientClockIn: clientTime ? new Date(clientTime) : null,
-      deviceId: cleanDeviceId || user.deviceId,
-      isOfflineEntry: false,
-      lastHeartbeat: serverNow,
-      status: 'PRESENT'
-    });
-
-    await attendance.save();
-    return sendSuccess(res, 201, 'Clock-in recorded successfully.', attendance);
+    return sendSuccess(res, statusCode, message, attendance);
   } catch (error) {
     next(error);
   }
 };
 
 /**
- * Direct Clock-Out Controller
+ * Direct Clock-Out Controller (Agent / System)
  * POST /api/attendance/clock-out
  */
 exports.clockOut = async (req, res, next) => {
@@ -93,34 +78,11 @@ exports.clockOut = async (req, res, next) => {
       await user.save();
     }
 
-    const serverNow = new Date();
-
-    let openAttendance = await Attendance.findOne({
-      userId: user._id,
-      clockOutTime: null
-    }).sort({ createdAt: -1 });
-
-    if (!openAttendance) {
-      // If no open session found, create closed record with clockInTime = clockOutTime
-      openAttendance = new Attendance({
-        userId: user._id,
-        clockInTime: serverNow,
-        deviceId: cleanDeviceId || user.deviceId
-      });
-    }
-
-    openAttendance.clockOutTime = serverNow;
-    openAttendance.clientClockOut = clientTime ? new Date(clientTime) : null;
-    openAttendance.lastHeartbeat = serverNow;
-    if (reason) openAttendance.reason = reason;
-
-    // Compute working hours
-    if (openAttendance.clockInTime) {
-      const diffMs = serverNow - new Date(openAttendance.clockInTime);
-      openAttendance.workingHours = Math.max(0, +(diffMs / (1000 * 60 * 60)).toFixed(2));
-    }
-
-    await openAttendance.save();
+    const openAttendance = await handleClockOut(
+      user._id,
+      'AGENT_AUTO',
+      { deviceId: cleanDeviceId || user.deviceId, clientTime, reason }
+    );
 
     // Trigger Admin Notification when Agent is closed/quit by employee
     const quitReason = reason || 'Agent Closed';
@@ -130,6 +92,83 @@ exports.clockOut = async (req, res, next) => {
     );
 
     return sendSuccess(res, 200, 'Clock-out recorded successfully.', openAttendance);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Manual Self-Service Clock-In Controller (Web / Mobile)
+ * POST /api/attendance/manual/clock-in
+ */
+exports.manualClockIn = async (req, res, next) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendError(res, 404, 'User not found.');
+    }
+
+    try {
+      const { attendance } = await handleClockIn(user._id, 'MANUAL', null, {
+        clientTime: req.body.clientTime
+      });
+
+      return sendSuccess(res, 201, 'Manual clock-in recorded successfully.', attendance);
+    } catch (err) {
+      if (err.statusCode === 409) {
+        return sendError(res, 409, err.message);
+      }
+      throw err;
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Manual Self-Service Clock-Out Controller (Web / Mobile)
+ * POST /api/attendance/manual/clock-out
+ */
+exports.manualClockOut = async (req, res, next) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendError(res, 404, 'User not found.');
+    }
+
+    try {
+      const attendance = await handleClockOut(user._id, 'MANUAL', {
+        reason: req.body.reason || 'Manual Clock Out'
+      });
+
+      return sendSuccess(res, 200, 'Manual clock-out recorded successfully.', attendance);
+    } catch (err) {
+      if (err.statusCode === 400) {
+        return sendError(res, 400, err.message);
+      }
+      throw err;
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Real-Time Attendance Active Status (for Web/Mobile UI button states)
+ * GET /api/attendance/status
+ */
+exports.getStatus = async (req, res, next) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+    const activeSession = await getActiveSession(userId);
+
+    return sendSuccess(res, 200, 'Attendance status retrieved.', {
+      isClockedIn: !!activeSession,
+      activeSession: activeSession || null,
+      clockInSource: activeSession ? activeSession.clockInSource : null
+    });
   } catch (error) {
     next(error);
   }
@@ -190,13 +229,13 @@ exports.handleEvent = async (req, res, next) => {
       }
 
       const serverNow = new Date();
-      const openAttendance = await Attendance.findOne({
-        userId: user._id,
-        clockOutTime: null
-      }).sort({ createdAt: -1 });
+      const openAttendance = await getActiveSession(user._id);
 
       if (openAttendance) {
         openAttendance.lastHeartbeat = serverNow;
+        if (cleanDeviceId && (!openAttendance.deviceId || openAttendance.deviceId !== cleanDeviceId)) {
+          openAttendance.deviceId = cleanDeviceId; // Adopt deviceId if manual clock-in earlier
+        }
         await openAttendance.save();
       }
 
