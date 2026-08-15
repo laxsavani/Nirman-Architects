@@ -24,6 +24,7 @@ const documentRoutes = require('./document.routes');
 const documentFolderRoutes = require('./documentFolder.routes');
 const chatRoutes = require('./chat.routes');
 const projectAnalyticsRoutes = require('./projectAnalytics.routes');
+const reportRoutes = require('./report.routes');
 
 // Health Check Endpoint
 router.get('/health', (req, res) => {
@@ -87,6 +88,9 @@ router.use('/projects/:projectId/chat', chatRoutes);
 // Project Analytics & Dashboards Routes (ERP Module 7)
 router.use('/analytics', projectAnalyticsRoutes);
 router.use('/projects', projectAnalyticsRoutes);
+
+// Reports Module Routes (ERP Module 8)
+router.use('/reports', reportRoutes);
 
 const clientTicketRoutes = require('./clientTicket.routes');
 const ticketRoutes = require('./ticket.routes');

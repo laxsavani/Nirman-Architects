@@ -137,11 +137,40 @@ function getScreenshotPath(userId, userName, dateObj = new Date(), customTimeStr
   };
 }
 
+/**
+ * Resolves + creates /storage/reports/<reportType>/ if needed.
+ * Returns full file path: <reportType>_<scope>_<timestamp>.<ext>
+ */
+function getReportPath(reportType = 'GENERAL', format = 'PDF', timestamp = Date.now(), scopeName = 'Report') {
+  const root = getStorageRoot();
+  const safeType = String(reportType).toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+  const safeScope = String(scopeName).replace(/[^a-zA-Z0-9_-]/g, '');
+  let ext = 'pdf';
+  if (String(format).toUpperCase() === 'EXCEL') ext = 'xlsx';
+  if (String(format).toUpperCase() === 'CSV') ext = 'csv';
+
+  const reportDir = path.join(root, 'reports', safeType);
+  if (!fs.existsSync(reportDir)) {
+    fs.mkdirSync(reportDir, { recursive: true });
+  }
+
+  const fileName = `${safeType}_${safeScope}_${timestamp}.${ext}`;
+  const relativePath = path.join('storage', 'reports', safeType, fileName).replace(/\\/g, '/');
+
+  return {
+    dirPath: reportDir,
+    fileName,
+    fullPath: path.join(reportDir, fileName),
+    relativePath
+  };
+}
+
 module.exports = {
   getStorageRoot,
   getOfferLetterPath,
   getSalarySlipPath,
   getScreenshotPath,
+  getReportPath,
   sanitizeNameForPath,
   safeResolvePath
 };

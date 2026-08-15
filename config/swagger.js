@@ -5301,6 +5301,87 @@ const swaggerDefinition = {
           200: { description: 'Analytics snapshot refreshed' }
         }
       }
+    },
+    '/reports/generate': {
+      post: {
+        tags: ['ERP Module 8 - Reports Module'],
+        summary: 'Generate a report (handles sync vs background job threshold)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  reportType: { type: 'string', example: 'PROJECT' },
+                  format: { type: 'string', example: 'PDF' },
+                  scope: { type: 'object' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Report generated synchronously' },
+          202: { description: 'Report queued as background job' }
+        }
+      }
+    },
+    '/reports/my': {
+      get: {
+        tags: ['ERP Module 8 - Reports Module'],
+        summary: 'List user generated reports history',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'User generated reports history retrieved' }
+        }
+      }
+    },
+    '/reports/{id}/status': {
+      get: {
+        tags: ['ERP Module 8 - Reports Module'],
+        summary: 'Poll background report generation status',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Report status retrieved' }
+        }
+      }
+    },
+    '/reports/{id}/download': {
+      get: {
+        tags: ['ERP Module 8 - Reports Module'],
+        summary: 'Download generated report file (re-verifies permissions)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Report file stream download' }
+        }
+      }
+    },
+    '/reports/scheduled/create': {
+      post: {
+        tags: ['ERP Module 8 - Reports Module'],
+        summary: 'Create recurring scheduled report configuration',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          201: { description: 'Scheduled report configuration created' }
+        }
+      }
+    },
+    '/reports/scheduled/my': {
+      get: {
+        tags: ['ERP Module 8 - Reports Module'],
+        summary: 'Get user active scheduled report configurations',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Scheduled reports retrieved' }
+        }
+      }
     }
   }
 };

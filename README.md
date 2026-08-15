@@ -185,6 +185,12 @@ node agent.js
 - **Department-Wise Progress**: Grouped task completion rates across internal departments.
 - **Company-Wide Summary & Snapshot Caching**: Admin dashboard rollup across all active projects and `ProjectAnalyticsSnapshot` database caching layer.
 
+### ERP Module 8: Reports Module
+- **Comprehensive Report Inventory**: Generates exports across 11 master PRD report types (`Attendance`, `Productivity`, `Project`, `Employee`, `Drawing`, `Site`, `Daily Progress`, `Monthly Progress`, `Customer`, `Task`, `Approval`).
+- **Multi-Format Export Pipeline**: PDF generation (`pdfkit`), Excel spreadsheet formatting, and CSV text export.
+- **Sync vs Background Job Execution Threshold**: Small-scope reports generate synchronously with immediate file download links; large-scope (`companyWide: true`, >10 projects, >90 days) reports route to background execution with status tracking (`PENDING` -> `GENERATING` -> `READY` / `FAILED`) and polling.
+- **Audit & Re-Verification Security**: Download history tracking (`GeneratedReport`), permission re-verification at download time, and scheduled report configurations (`ScheduledReport`).
+
 ---
 
 ## 🗄️ Database Schemas Directory

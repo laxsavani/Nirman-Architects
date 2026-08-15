@@ -1178,9 +1178,29 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 30. HEALTH & SYSTEM APIs
+## 30. ERP MODULE 8 - REPORTS MODULE APIs
 
-### 30.1 `GET /api/health`
+### 30.1 `POST /api/reports/generate`
+- **Description**: Generic report generation endpoint. Generates reports synchronously for small scopes or dispatches to background job (`status: GENERATING`) when scope size threshold is exceeded.
+- **Auth**: Authenticated User with role-scoped access (`authMiddleware`).
+
+### 30.2 `GET /api/reports/my`, `GET /api/reports/:id/status` & `GET /api/reports/:id/download`
+- **Description**: Retrieves caller's generated report history list, polls background job execution status, and streams generated report file after re-verifying role permissions at download time.
+- **Auth**: Authenticated User (`authMiddleware`).
+
+### 30.3 Convenience Report Endpoints (`POST /api/reports/...`)
+- **Description**: Specific report type convenience endpoints (`/attendance`, `/productivity`, `/project`, `/employee`, `/drawing`, `/site`, `/daily-progress`, `/monthly-progress`, `/customer`, `/task`, `/approval`) supporting PDF, Excel, and CSV export formats.
+- **Auth**: Role-scoped per report type (`authMiddleware`).
+
+### 30.4 Scheduled Report CRUD (`POST /api/reports/scheduled/create`, `GET /scheduled/my`, `DELETE /scheduled/:id`)
+- **Description**: Configures, lists, and removes recurring scheduled report settings.
+- **Auth**: Authenticated User (`authMiddleware`).
+
+---
+
+## 31. HEALTH & SYSTEM APIs
+
+### 31.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -1194,7 +1214,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 268 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 286 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -1466,3 +1486,21 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 266 | `GET /api/projects/:id/analysis/department-wise` | Project Team | ERP 7 - Department-Wise Progress Breakdown |
 | 267 | `GET /api/analytics/company-wide-summary` | Admin / Super Admin | ERP 7 - Company-Wide Summary (Admin Dashboard Source) |
 | 268 | `POST /api/analytics/refresh-snapshot/:projectId` | Admin / Super Admin | ERP 7 - Refresh Cached Project Analytics Snapshot |
+| 269 | `POST /api/reports/generate` | Auth / Scoped | ERP 8 - Generic Report Generation (Sync vs Background Job) |
+| 270 | `GET /api/reports/my` | Auth User | ERP 8 - User Generated Reports History List |
+| 271 | `GET /api/reports/:id/status` | Auth User | ERP 8 - Poll Background Report Generation Status |
+| 272 | `GET /api/reports/:id/download` | Auth / Scoped | ERP 8 - Download Report File & Re-Verify Permissions |
+| 273 | `POST /api/reports/attendance` | HR / Admin | ERP 8 - Attendance Report Convenience Endpoint |
+| 274 | `POST /api/reports/productivity` | HR / PM / Admin | ERP 8 - Productivity Report Convenience Endpoint |
+| 275 | `POST /api/reports/project` | PM / Admin | ERP 8 - Project Report Convenience Endpoint |
+| 276 | `POST /api/reports/employee` | HR / Admin | ERP 8 - Employee Report Convenience Endpoint |
+| 277 | `POST /api/reports/drawing` | PM / Admin | ERP 8 - Drawing Report Convenience Endpoint |
+| 278 | `POST /api/reports/site` | Site Eng / PM / Admin | ERP 8 - Site Activity & Geo-Fence Report Endpoint |
+| 279 | `POST /api/reports/daily-progress` | PM / Admin | ERP 8 - Daily Progress Snapshot Report Endpoint |
+| 280 | `POST /api/reports/monthly-progress` | PM / Admin | ERP 8 - Monthly Progress Rollup Report Endpoint |
+| 281 | `POST /api/reports/customer` | PM / Admin | ERP 8 - Customer & Client Engagement Report Endpoint |
+| 282 | `POST /api/reports/task` | PM / Admin | ERP 8 - Task Analysis Report Convenience Endpoint |
+| 283 | `POST /api/reports/approval` | PM / Admin | ERP 8 - Drawing & Design Approval Audit Report Endpoint |
+| 284 | `POST /api/reports/scheduled/create` | Auth User | ERP 8 - Create Scheduled Report Configuration |
+| 285 | `GET /api/reports/scheduled/my` | Auth User | ERP 8 - Get Active Scheduled Report Configurations |
+| 286 | `DELETE /api/reports/scheduled/:id` | Auth User | ERP 8 - Remove Scheduled Report Configuration |
