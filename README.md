@@ -196,6 +196,11 @@ node agent.js
 - **Dynamic Role-Broadcast & De-Duplication**: Target resolution via `broadcastToRoles` (`'PROJECT_MANAGER'`, `'ADMIN'`, `'SUPER_ADMIN'`) and target `userId` de-duplication.
 - **In-App Notification Center & Channel Preferences**: `InternalNotification` tracking, unread count badge, mark-as-read, per-employee channel preference filters (`pushEnabled`, `emailEnabled`, `whatsappEnabled`), push device token registration, and delivery audit log tracking (`InternalNotificationDeliveryLog`).
 
+### ERP Module 10: Admin Dashboard (Capstone — 30/30 Modules Complete!)
+- **Master Aggregated Executive Dashboard**: Single-pane-of-glass executive overview compiling metrics across all 18 PRD Section 6 tiles (Total/Active/Completed/Delayed Projects, Pending Approvals, Attendance, Productivity, Online Employees, Recent Activities, Notifications, Upcoming Deadlines, Progress, Revenue Summary, Task Summary, Drawing Status, Project Health Score).
+- **Dynamic Composite Project Health Score**: Weighted health calculation (`projectHealthCalculator`) evaluating Timeline adherence, Drawing velocity, Team productivity, and Client engagement into numerical scores (0–100) and status classifications (`EXCELLENT`, `GOOD`, `AT_RISK`, `CRITICAL`), backed by dynamic `ProjectHealthConfig` weight settings (Super Admin).
+- **Real-Time Active Clock-Ins & Honest Revenue Scoping**: Active employee tracking (excluding Super Admin) with site vs office breakdown, company-wide activity feed, and honestly-scoped budgeted project value summaries (`CompanyDashboardSnapshot`).
+
 ---
 
 ## 🗄️ Database Schemas Directory

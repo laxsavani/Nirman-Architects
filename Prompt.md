@@ -1222,9 +1222,41 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## 32. HEALTH & SYSTEM APIs
+## 32. ERP MODULE 10 - ADMIN DASHBOARD APIs (CAPSTONE)
 
-### 32.1 `GET /api/health`
+### 32.1 `GET /api/admin-dashboard`
+- **Description**: Master Aggregated Executive Admin Dashboard compiling metrics across all 18 PRD Section 6 tiles (Total/Active/Completed/Delayed Projects, Pending Approvals, Attendance, Productivity, Online Employees, Recent Activities, Notifications, Upcoming Deadlines, Progress, Revenue Summary, Task Summary, Drawing Status, Project Health Score).
+- **Auth**: Admin / Super Admin (`authMiddleware`).
+
+### 32.2 `GET /api/admin-dashboard/online-employees`
+- **Description**: Real-time active clock-in list split by Site vs Office (excludes Super Admin).
+- **Auth**: Admin / Super Admin (`authMiddleware`).
+
+### 32.3 `GET /api/admin-dashboard/recent-activities` & `GET /api/admin-dashboard/upcoming-deadlines`
+- **Description**: Retrieves company-wide activity feed log and upcoming milestone/task deadline list.
+- **Auth**: Admin / Super Admin (`authMiddleware`).
+
+### 32.4 `GET /api/admin-dashboard/revenue-summary`
+- **Description**: Honest-scoped revenue summary calculating budgeted project values with clear expectation metadata.
+- **Auth**: Admin / Super Admin (`authMiddleware`).
+
+### 32.5 `GET /api/admin-dashboard/project-health/:projectId` & `GET /api/admin-dashboard/project-health/company-average`
+- **Description**: Computes composite project health scores (Timeline, Drawing Velocity, Productivity, Client Engagement) per project and company-wide average.
+- **Auth**: Admin / Super Admin (`authMiddleware`).
+
+### 32.6 `GET /api/project-health-config` & `PUT /api/project-health-config`
+- **Description**: Retrieves and updates dynamic project health scoring factor weights.
+- **Auth**: Read: Admin / Super Admin. Write: Super Admin Only (`authMiddleware`).
+
+### 32.7 `POST /api/admin-dashboard/refresh-snapshot`
+- **Description**: Manually refreshes company-wide dashboard metrics snapshot cache.
+- **Auth**: Admin / Super Admin (`authMiddleware`).
+
+---
+
+## 33. HEALTH & SYSTEM APIs
+
+### 33.1 `GET /api/health`
 - **Description**: Checks service health status and returns current server timestamp.
 - **Auth**: Public / Unrestricted.
 - **Response** (`200 OK`):
@@ -1238,7 +1270,7 @@ The application uses two distinct, non-interchangeable JWT token types:
 
 ---
 
-## SUMMARY OF ALL 295 API ENDPOINTS BY MODULE
+## SUMMARY OF ALL 304 API ENDPOINTS BY MODULE
 
 | # | Endpoint Method & Path | Auth Scope | Module |
 | :--- | :--- | :--- | :--- |
@@ -1537,3 +1569,12 @@ The application uses two distinct, non-interchangeable JWT token types:
 | 293 | `POST /api/notifications/register-device` | Auth Employee | ERP 9 - Register Employee Push Device Token |
 | 294 | `DELETE /api/notifications/unregister-device` | Auth Employee | ERP 9 - Unregister Employee Push Device Token |
 | 295 | `GET /api/notifications/:notificationId/delivery-log` | Admin / Super Admin | ERP 9 - Delivery Audit Log Debugging Utility |
+| 296 | `GET /api/admin-dashboard` | Admin / Super Admin | ERP 10 - Master Aggregated Admin Dashboard (All 18 Tiles) |
+| 297 | `GET /api/admin-dashboard/online-employees` | Admin / Super Admin | ERP 10 - Real-Time Online Active Clock-Ins (Site vs Office) |
+| 298 | `GET /api/admin-dashboard/recent-activities` | Admin / Super Admin | ERP 10 - Company-Wide Recent Activities Log Feed |
+| 299 | `GET /api/admin-dashboard/upcoming-deadlines` | Admin / Super Admin | ERP 10 - Company-Wide Milestone & Task Deadlines |
+| 300 | `GET /api/admin-dashboard/revenue-summary` | Admin / Super Admin | ERP 10 - Honest-Scoped Revenue Summary (Budgeted Project Value) |
+| 301 | `GET /api/admin-dashboard/project-health/company-average` | Admin / Super Admin | ERP 10 - Company Average Composite Project Health Score |
+| 302 | `GET /api/admin-dashboard/project-health/:projectId` | Admin / Super Admin | ERP 10 - Single Project Composite Health Score Deep-Dive |
+| 303 | `POST /api/admin-dashboard/refresh-snapshot` | Admin / Super Admin | ERP 10 - Refresh Dashboard Metrics Snapshot Cache |
+| 304 | `GET /api/project-health-config`, `PUT` | Read: Admin / Write: Super Admin | ERP 10 - Dynamic Project Health Weights CRUD |

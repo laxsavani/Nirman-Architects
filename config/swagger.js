@@ -5466,6 +5466,107 @@ const swaggerDefinition = {
           200: { description: 'Delivery log retrieved' }
         }
       }
+    },
+    '/admin-dashboard': {
+      get: {
+        tags: ['ERP Module 10 - Admin Dashboard (Capstone)'],
+        summary: 'Master Aggregated Executive Admin Dashboard (all 18 tiles)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Master Admin Dashboard payload retrieved' }
+        }
+      }
+    },
+    '/admin-dashboard/online-employees': {
+      get: {
+        tags: ['ERP Module 10 - Admin Dashboard (Capstone)'],
+        summary: 'Real-time online active clock-ins split by site vs office (excluding Super Admin)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Online employees breakdown retrieved' }
+        }
+      }
+    },
+    '/admin-dashboard/recent-activities': {
+      get: {
+        tags: ['ERP Module 10 - Admin Dashboard (Capstone)'],
+        summary: 'Company-wide recent activity log feed',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Recent activities feed retrieved' }
+        }
+      }
+    },
+    '/admin-dashboard/upcoming-deadlines': {
+      get: {
+        tags: ['ERP Module 10 - Admin Dashboard (Capstone)'],
+        summary: 'Company-wide upcoming milestones & task deadlines',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Upcoming deadlines retrieved' }
+        }
+      }
+    },
+    '/admin-dashboard/revenue-summary': {
+      get: {
+        tags: ['ERP Module 10 - Admin Dashboard (Capstone)'],
+        summary: 'Honest-scoped revenue summary (Budgeted project value)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Revenue summary retrieved' }
+        }
+      }
+    },
+    '/admin-dashboard/project-health/company-average': {
+      get: {
+        tags: ['ERP Module 10 - Admin Dashboard (Capstone)'],
+        summary: 'Company average composite project health score',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Company average health score calculated' }
+        }
+      }
+    },
+    '/admin-dashboard/project-health/{projectId}': {
+      get: {
+        tags: ['ERP Module 10 - Admin Dashboard (Capstone)'],
+        summary: 'Single project composite health score deep-dive',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Project health score calculated' }
+        }
+      }
+    },
+    '/admin-dashboard/refresh-snapshot': {
+      post: {
+        tags: ['ERP Module 10 - Admin Dashboard (Capstone)'],
+        summary: 'Refresh company-wide dashboard metrics snapshot cache',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Snapshot refreshed successfully' }
+        }
+      }
+    },
+    '/project-health-config': {
+      get: {
+        tags: ['ERP Module 10 - Admin Dashboard (Capstone)'],
+        summary: 'Get dynamic project health scoring weights configuration',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Health config retrieved' }
+        }
+      },
+      put: {
+        tags: ['ERP Module 10 - Admin Dashboard (Capstone)'],
+        summary: 'Update dynamic project health scoring weights (Super Admin only)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Health config updated' }
+        }
+      }
     }
   }
 };
