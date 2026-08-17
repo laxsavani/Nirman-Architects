@@ -150,6 +150,9 @@ exports.login = async (req, res, next) => {
 
     const token = generateToken(payload);
 
+    const { clearRateLimit } = require('../middlewares/rateLimiter.middleware');
+    clearRateLimit(req);
+
     return sendSuccess(res, 200, 'Login successful.', {
       token,
       user: {

@@ -62,6 +62,16 @@ The system manages dual user populations:
    - `MEMBER`: Interactive client privileges (chat, tickets, document view).
    - `VIEW_ONLY`: Read-only access to portal data.
 
+### Progressive Rate Limiting (`rateLimiter.middleware.js`)
+All authentication login endpoints (`/api/auth/login` and `/api/client-auth/login`) are protected with a progressive / stepped lockout rate limiter:
+- **Max Failed Attempts**: 5 requests per IP window.
+- **Progressive Lockout Stepper**:
+  - **1st Lockout**: 3 Minutes lock (`3m`)
+  - **2nd Lockout**: 5 Minutes lock (`5m`)
+  - **3rd Lockout**: 10 Minutes lock (`10m`)
+  - **4th+ Lockout**: 15 Minutes lock (`15m`)
+- **Auto-Reset**: Successful login or 1 hour of IP inactivity resets lock tier back to 0.
+
 ---
 
 ## ⏱️ Attendance Management System (Dual Mode)

@@ -61,6 +61,9 @@ exports.login = async (req, res) => {
       performedAt: new Date()
     });
 
+    const { clearRateLimit } = require('../middlewares/rateLimiter.middleware');
+    clearRateLimit(req);
+
     return sendSuccess(res, 200, 'Client Portal login successful.', {
       token,
       contact: {
